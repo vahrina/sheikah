@@ -21,7 +21,7 @@ pub struct Cli {
     #[arg(short, long, value_name = "REF")]
     get: Option<String>,
 
-    /// displays a detailed list of the crated entry
+    /// displays a detailed list of the created entry
     #[arg(short, long, value_name = "REF")]
     show: Option<String>,
 
@@ -47,7 +47,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
-    /// crate a new entry point where your secrets live
+    /// create a new entry point where your secrets live
     Init {
         #[arg(long, value_name = "FILE")]
         path: Option<PathBuf>,
@@ -133,7 +133,7 @@ pub(crate) fn run(args: Cli) {
 
             if let Some(parent) = res_path.parent() {
                 std::fs::create_dir_all(parent)
-                    .unwrap_or_else(|e| panic!("cannot crate {}: {e}", parent.display()));
+                    .unwrap_or_else(|e| panic!("cannot create {}: {e}", parent.display()));
             }
 
             let _file = OpenOptions::new()
@@ -141,7 +141,7 @@ pub(crate) fn run(args: Cli) {
                 .write(true)
                 .mode(0o600)
                 .open(&res_path)
-                .unwrap_or_else(|e| panic!("cannot crate {}: {e}", res_path.display()));
+                .unwrap_or_else(|e| panic!("cannot create {}: {e}", res_path.display()));
 
             println!("initialized new secret file at {}", res_path.display());
         }
