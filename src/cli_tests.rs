@@ -1,4 +1,7 @@
 use super::*;
+use crate::args::Commands;
+use std::path::PathBuf;
+use crate::args::Cli;
 
 #[test]
 fn add_with_all_args() {

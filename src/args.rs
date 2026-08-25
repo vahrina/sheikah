@@ -21,7 +21,7 @@ pub struct Cli {
     #[arg(short, long, value_name = "REF")]
     get: Option<String>,
 
-    /// displays a detailed list of the created entry
+    /// displays a detailed list of the crated entry
     #[arg(short, long, value_name = "REF")]
     show: Option<String>,
 
@@ -42,12 +42,12 @@ pub struct Cli {
     flags: bool,
 
     #[command(subcommand)]
-    command: Option<Commands>,
+    pub(crate) command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
 pub(crate) enum Commands {
-    /// create a new entry point where your secrets live
+    /// crate a new entry point where your secrets live
     Init {
         #[arg(long, value_name = "FILE")]
         path: Option<PathBuf>,
@@ -66,28 +66,28 @@ pub(crate) enum Commands {
 #[derive(Args)]
 pub(crate) struct AddArgs {
     /// label for site/app (netflix, proton, ..)
-    #[arg(short = 's', long, value_name = "STR")]
-    service: Option<String>,
+    #[arg(short, long, value_name = "STR")]
+    pub(crate) service: Option<String>,
 
     /// category (series, mail, ..)
     #[arg(short, long, value_name = "STR")]
-    category: Option<String>,
+    pub(crate) category: Option<String>,
 
     /// domain/url
     #[arg(short, long, value_name = "STR")]
-    domain: Option<String>,
+    pub(crate) domain: Option<String>,
 
     /// email
     #[arg(short, long, value_name = "STR")]
-    email: Option<String>,
+    pub(crate) email: Option<String>,
 
     /// username/login
     #[arg(short, long, value_name = "STR")]
-    user: Option<String>,
+    pub(crate) user: Option<String>,
 
     /// optional notes
     #[arg(short, long, value_name = "STR")]
-    notes: Option<String>,
+    pub(crate) notes: Option<String>,
 
     /*
     * password will always be prompted after either interactive or args are done
@@ -133,7 +133,7 @@ pub(crate) fn run(args: Cli) {
 
             if let Some(parent) = res_path.parent() {
                 std::fs::create_dir_all(parent)
-                    .unwrap_or_else(|e| panic!("cannot create {}: {e}", parent.display()));
+                    .unwrap_or_else(|e| panic!("cannot crate {}: {e}", parent.display()));
             }
 
             let _file = OpenOptions::new()
@@ -141,7 +141,7 @@ pub(crate) fn run(args: Cli) {
                 .write(true)
                 .mode(0o600)
                 .open(&res_path)
-                .unwrap_or_else(|e| panic!("cannot create {}: {e}", res_path.display()));
+                .unwrap_or_else(|e| panic!("cannot crate {}: {e}", res_path.display()));
 
             println!("initialized new secret file at {}", res_path.display());
         }
