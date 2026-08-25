@@ -145,7 +145,7 @@ pub(crate) fn run(args: Cli) {
                 let mode = std::fs::metadata(parent)
                     .unwrap_or_else(|e| panic!("cannot stat {}: {e}", parent.display()))
                     .permissions()
-                    .mode() & 0x777;
+                    .mode() & 0o777;
 
                 if chattr_stat.success() {
                     println!("created dir {} (mode {:o})", parent.display(), mode);
