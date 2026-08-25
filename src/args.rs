@@ -4,13 +4,11 @@ use clap::{
     Subcommand
 };
 use std::{
-    path::PathBuf,
-    os::unix::fs::OpenOptionsExt,
-    env::var,
-    fs::{
-        OpenOptions,
-        read_dir,
-    },
+    env::var, fs::{
+        DirBuilder, OpenOptions, read_dir,
+    }, os::unix::fs::{
+        DirBuilderExt, OpenOptionsExt, PermissionsExt,
+    }, path::PathBuf,
 };
 
 #[derive(Parser)]
@@ -97,13 +95,13 @@ pub(crate) struct AddArgs {
 }
 
 fn default_init_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| std::env::var("XDG_HOME").unwrap_or_default());
+    let home = std::env::var("HOME").unwrap_or_else(|_| std::env::var("XDG_DATA_HOME").unwrap_or_default());
     PathBuf::from(home).join(".sheikah").join("heirloom.json")
 }
 
 #[allow(dead_code)]
 fn check_files_in_dir() -> PathBuf {
-    let home = var("HOME").unwrap_or_else(|_| var("XDG_HOME").unwrap_or_default());
+    let home = var("HOME").unwrap_or_else(|_| var("XDG_DATA_HOME").unwrap_or_default());
     let dir = PathBuf::from(home).join(".sheikah");
 
     let entries: Vec<PathBuf> = read_dir(&dir)
@@ -131,11 +129,32 @@ pub(crate) fn run(args: Cli) {
                 std::process::exit(1);
             }
 
+            // create the ~/.sheikah dir
             if let Some(parent) = res_path.parent() {
-                std::fs::create_dir_all(parent)
+                DirBuilder::new()
+                    .recursive(true)
+                    .mode(0o700)
+                    .create(parent)
                     .unwrap_or_else(|e| panic!("cannot create {}: {e}", parent.display()));
+
+                let chattr_stat = std::process::Command::new("sudo")
+                    .args(["chattr", "+a", parent.to_str().unwrap()])
+                    .status()
+                    .unwrap_or_else(|e| panic!("failed to run chattr: {e}"));
+
+                let mode = std::fs::metadata(parent)
+                    .unwrap_or_else(|e| panic!("cannot stat {}: {e}", parent.display()))
+                    .permissions()
+                    .mode() & 0x777;
+
+                if chattr_stat.success() {
+                    println!("created dir {} (mode {:o})", parent.display(), mode);
+                } else {
+                    eprintln!("created dir {} (mode {:o}), but chattr +a failed, thus deletion protection is not applied", parent.display(), mode)
+                }
             }
 
+            // additionally ~/.sheikah/heirloom.json
             let _file = OpenOptions::new()
                 .create_new(true)
                 .write(true)
@@ -143,7 +162,7 @@ pub(crate) fn run(args: Cli) {
                 .open(&res_path)
                 .unwrap_or_else(|e| panic!("cannot create {}: {e}", res_path.display()));
 
-            println!("initialized new secret file at {}", res_path.display());
+            println!("successfully initialized! your file lives here: {}", res_path.display());
         }
 
         Some(Commands::Add(add_args)) => {
