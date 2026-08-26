@@ -11,6 +11,8 @@ use std::{
     }, path::PathBuf,
 };
 
+use crate::prompt::confirm;
+
 #[derive(Parser)]
 #[command(about = "a quick, easy & secure cli password manager")]
 #[command(version, long_about = None)]
@@ -137,32 +139,54 @@ pub(crate) fn run(args: Cli) {
                     .create(parent)
                     .unwrap_or_else(|e| panic!("cannot create {}: {e}", parent.display()));
 
-                let chattr_stat = std::process::Command::new("sudo")
-                    .args(["chattr", "+a", parent.to_str().unwrap()])
-                    .status()
-                    .unwrap_or_else(|e| panic!("failed to run chattr: {e}"));
-
                 let mode = std::fs::metadata(parent)
                     .unwrap_or_else(|e| panic!("cannot stat {}: {e}", parent.display()))
                     .permissions()
                     .mode() & 0o777;
 
-                if chattr_stat.success() {
-                    println!("created dir {} (mode {:o})", parent.display(), mode);
+                // although chattr +a is enabled by default for now,
+                // this behaviour is experimental & may be determined
+                // via another flag (idk, e.g. `--enable-chattr-protection`?)
+                let answer_chattr = confirm(&format!(
+                    "protect {}  from deletion via 'sudo chattr +a'?",
+                    parent.display()
+                ));
+
+                if answer_chattr {
+                    match std::process::Command::new("sudo")
+                        .args(["chattr", "+a", &parent.to_string_lossy()])
+                        .output() {
+                        Ok(output) if output.status.success() => {
+                            println!("created dir {} (mode {:o})", parent.display(), mode);
+                        }
+
+                        Ok(output) => {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            eprintln!(
+                                "created dir {} (mode {:o}), but chattr +a failed, thus deletion protection is NOT applied: {}",
+                                parent.display(), mode, stderr.trim());
+                        }
+
+                        Err(e) => {
+                            eprintln!(
+                                "created dir {} (mode {:o}), but could not run chattr (is sudo installed?): {e}",
+                                parent.display(), mode);
+                        }
+                    }
                 } else {
-                    eprintln!("created dir {} (mode {:o}), but chattr +a failed, thus deletion protection is not applied", parent.display(), mode)
+                    println!("skipping chattr attribute...")
                 }
+
+                // additionally ~/.sheikah/heirloom.json
+                let _file = OpenOptions::new()
+                    .create_new(true)
+                    .write(true)
+                    .mode(0o600)
+                    .open(&res_path)
+                    .unwrap_or_else(|e| panic!("cannot create {}: {e}", res_path.display()));
+
+                println!("successfully initialized! your file lives here: {}", res_path.display());
             }
-
-            // additionally ~/.sheikah/heirloom.json
-            let _file = OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .mode(0o600)
-                .open(&res_path)
-                .unwrap_or_else(|e| panic!("cannot create {}: {e}", res_path.display()));
-
-            println!("successfully initialized! your file lives here: {}", res_path.display());
         }
 
         Some(Commands::Add(add_args)) => {

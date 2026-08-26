@@ -1,5 +1,6 @@
 use clap::Parser;
 mod args;
+mod prompt;
 use crate::args::Cli;
 
 #[cfg(test)]
