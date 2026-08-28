@@ -2,6 +2,10 @@ use super::*;
 use crate::args::Commands;
 use std::path::PathBuf;
 use crate::args::Cli;
+use rpassword::{
+    ConfigBuilder,
+    read_password_with_config,
+};
 
 #[test]
 fn add_with_all_args() {
@@ -45,4 +49,16 @@ fn conflicting_or_bad_args_err() {
     ]);
 
     assert!(cli.is_err());
+}
+
+#[test]
+fn password_prompt() {
+    let conf = ConfigBuilder::new()
+        .input_data("cat")
+        .output_discard()
+        .build();
+
+    let pass = read_password_with_config(conf).unwrap();
+
+    assert_eq!(pass, "cat");
 }

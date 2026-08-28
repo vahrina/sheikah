@@ -1,15 +1,14 @@
 use clap::{
-    Args,
-    Parser,
-    Subcommand
+    Args, Parser, Subcommand
 };
 use std::{
     env::var, fs::{
         DirBuilder, OpenOptions, read_dir,
     }, os::unix::fs::{
         DirBuilderExt, OpenOptionsExt, PermissionsExt,
-    }, path::PathBuf,
+    }, path::{Path, PathBuf},
 };
+use rpassword::prompt_password;
 
 use crate::prompt::confirm;
 
@@ -98,7 +97,7 @@ pub(crate) struct AddArgs {
 
 fn default_init_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| std::env::var("XDG_DATA_HOME").unwrap_or_default());
-    PathBuf::from(home).join(".sheikah").join("heirloom.json")
+    PathBuf::from(home).join(".sheikah").join("eye.enc")
 }
 
 #[allow(dead_code)]
@@ -119,6 +118,15 @@ fn check_files_in_dir() -> PathBuf {
             many.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")
         ),
     }
+}
+
+fn passwd_prompt(_path: Option<PathBuf>) -> std::io::Result<String> {
+    let prompt: &str = "master password\n> ";
+    prompt_password(prompt)
+}
+
+fn change_master_passwd(path: &Path, old_pass: &str, new_pass: &str) {
+    // load, verify `old_pass` against stored hash, re-encrypt, rewrite
 }
 
 pub(crate) fn run(args: Cli) {
@@ -148,7 +156,7 @@ pub(crate) fn run(args: Cli) {
                 // this behaviour is experimental & may be determined
                 // via another flag (idk, e.g. `--enable-chattr-protection`?)
                 let answer_chattr = confirm(&format!(
-                    "protect {}  from deletion via 'sudo chattr +a'?",
+                    "protect '{}' from deletion via 'sudo chattr +a'?",
                     parent.display()
                 ));
 
@@ -156,28 +164,25 @@ pub(crate) fn run(args: Cli) {
                     match std::process::Command::new("sudo")
                         .args(["chattr", "+a", &parent.to_string_lossy()])
                         .output() {
-                        Ok(output) if output.status.success() => {
-                            println!("created dir {} (mode {:o})", parent.display(), mode);
-                        }
 
                         Ok(output) => {
                             let stderr = String::from_utf8_lossy(&output.stderr);
                             eprintln!(
-                                "created dir {} (mode {:o}), but chattr +a failed, thus deletion protection is NOT applied: {}",
-                                parent.display(), mode, stderr.trim());
+                                "created dir '{}', but chattr +a failed, thus deletion protection is NOT applied: {}",
+                                parent.display(), stderr.trim());
                         }
 
                         Err(e) => {
                             eprintln!(
-                                "created dir {} (mode {:o}), but could not run chattr (is sudo installed?): {e}",
-                                parent.display(), mode);
+                                "created dir '{}', but could not run chattr (is sudo installed?): {e}",
+                                parent.display());
                         }
                     }
                 } else {
                     println!("skipping chattr attribute...")
                 }
 
-                // additionally ~/.sheikah/heirloom.json
+                // additionally ~/.sheikah/eye.enc
                 let _file = OpenOptions::new()
                     .create_new(true)
                     .write(true)
@@ -193,7 +198,7 @@ pub(crate) fn run(args: Cli) {
             match &add_args.service {
                 Some(service) => {
                     todo!()
-                    // add all args as serialized json into `~/sheikah/heirloom.json` & hash
+                    // add all args as serialized enc into `~/sheikah/eye.enc` & hash
                     // also account for an interactive mode, prompting piece by piece
                     // ^ additionally password prompt for both use cases
                 }

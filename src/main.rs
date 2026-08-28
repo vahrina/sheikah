@@ -1,6 +1,7 @@
 use clap::Parser;
 mod args;
 mod prompt;
+mod codec;
 use crate::args::Cli;
 
 #[cfg(test)]
