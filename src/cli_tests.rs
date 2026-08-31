@@ -1,21 +1,24 @@
 use super::*;
-use crate::args::Commands;
-use std::path::PathBuf;
 use crate::args::Cli;
-use rpassword::{
-    ConfigBuilder,
-    read_password_with_config,
-};
+use crate::args::Commands;
+use rpassword::{ConfigBuilder, read_password_with_config};
+use std::path::PathBuf;
 
 #[test]
 fn add_with_all_args() {
     let cli = Cli::try_parse_from([
-        "sheikah", "add",
-        "-s", "github",
-        "-c", "misc",
-        "-u", "v",
-        "-n", "funny note"
-    ]).unwrap();
+        "sheikah",
+        "add",
+        "-s",
+        "github",
+        "-c",
+        "misc",
+        "-u",
+        "v",
+        "-n",
+        "funny note",
+    ])
+    .unwrap();
 
     match cli.command {
         Some(Commands::Add(a)) => {
@@ -30,9 +33,7 @@ fn add_with_all_args() {
 
 #[test]
 fn init_with_path() {
-    let cli = Cli::try_parse_from([
-        "sheikah", "init", "--path", "/tmp/foo"
-    ]).unwrap();
+    let cli = Cli::try_parse_from(["sheikah", "init", "--path", "/tmp/foo"]).unwrap();
 
     match cli.command {
         Some(Commands::Init { path }) => {
@@ -44,9 +45,7 @@ fn init_with_path() {
 
 #[test]
 fn conflicting_or_bad_args_err() {
-    let cli = Cli::try_parse_from([
-        "sheikah", "--deadbeef"
-    ]);
+    let cli = Cli::try_parse_from(["sheikah", "--deadbeef"]);
 
     assert!(cli.is_err());
 }

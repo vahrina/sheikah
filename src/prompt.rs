@@ -1,7 +1,4 @@
-use std::io::{
-    self,
-    Write
-};
+use std::io::{self, Write};
 
 pub fn confirm(prompt: &str) -> bool {
     print!("{prompt} [y/N]\n> ");

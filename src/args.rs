@@ -1,14 +1,11 @@
-use clap::{
-    Args, Parser, Subcommand
-};
-use std::{
-    env::var, fs::{
-        DirBuilder, OpenOptions, read_dir,
-    }, os::unix::fs::{
-        DirBuilderExt, OpenOptionsExt, PermissionsExt,
-    }, path::{Path, PathBuf},
-};
+use clap::{Args, Parser, Subcommand};
 use rpassword::prompt_password;
+use std::{
+    env::var,
+    fs::{DirBuilder, OpenOptions, read_dir},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
+    path::{Path, PathBuf},
+};
 
 use crate::prompt::confirm;
 
@@ -59,7 +56,7 @@ pub(crate) enum Commands {
     Passwd {
         #[arg(long, value_name = "FILE")]
         path: Option<PathBuf>,
-    }
+    },
 }
 
 #[derive(Args)]
@@ -87,16 +84,16 @@ pub(crate) struct AddArgs {
     /// optional notes
     #[arg(short, long, value_name = "STR")]
     pub(crate) notes: Option<String>,
-
     /*
-    * password will always be prompted after either interactive or args are done
-    * avoid putting as arg at all cost! will land in shell history & `/proc/<pid>/cmdline`
-    * remember to put `-p` arg into the `edit` option
-    */
+     * password will always be prompted after either interactive or args are done
+     * avoid putting as arg at all cost! will land in shell history & `/proc/<pid>/cmdline`
+     * remember to put `-p` arg into the `edit` option
+     */
 }
 
 fn default_init_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| std::env::var("XDG_DATA_HOME").unwrap_or_default());
+    let home = std::env::var("HOME")
+        .unwrap_or_else(|_| std::env::var("XDG_DATA_HOME").unwrap_or_default());
     PathBuf::from(home).join(".sheikah").join("eye.enc")
 }
 
@@ -115,7 +112,10 @@ fn check_files_in_dir() -> PathBuf {
         [] => panic!("no secret file present in {}", dir.display()),
         many => panic!(
             "more than 1 secret file present: {}\npick one with the --path flag",
-            many.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")
+            many.iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         ),
     }
 }
@@ -135,7 +135,10 @@ pub(crate) fn run(args: Cli) {
             let res_path = path.clone().unwrap_or_else(default_init_path);
 
             if res_path.exists() {
-                eprintln!("refusing to overwrite existing file: {}", res_path.display());
+                eprintln!(
+                    "refusing to overwrite existing file: {}",
+                    res_path.display()
+                );
                 std::process::exit(1);
             }
 
@@ -150,7 +153,8 @@ pub(crate) fn run(args: Cli) {
                 let mode = std::fs::metadata(parent)
                     .unwrap_or_else(|e| panic!("cannot stat {}: {e}", parent.display()))
                     .permissions()
-                    .mode() & 0o777;
+                    .mode()
+                    & 0o777;
 
                 // although chattr +a is enabled by default for now,
                 // this behaviour is experimental & may be determined
@@ -163,19 +167,22 @@ pub(crate) fn run(args: Cli) {
                 if answer_chattr {
                     match std::process::Command::new("sudo")
                         .args(["chattr", "+a", &parent.to_string_lossy()])
-                        .output() {
-
+                        .output()
+                    {
                         Ok(output) => {
                             let stderr = String::from_utf8_lossy(&output.stderr);
                             eprintln!(
                                 "created dir '{}', but chattr +a failed, thus deletion protection is NOT applied: {}",
-                                parent.display(), stderr.trim());
+                                parent.display(),
+                                stderr.trim()
+                            );
                         }
 
                         Err(e) => {
                             eprintln!(
                                 "created dir '{}', but could not run chattr (is sudo installed?): {e}",
-                                parent.display());
+                                parent.display()
+                            );
                         }
                     }
                 } else {
@@ -190,7 +197,10 @@ pub(crate) fn run(args: Cli) {
                     .open(&res_path)
                     .unwrap_or_else(|e| panic!("cannot create {}: {e}", res_path.display()));
 
-                println!("successfully initialized! your file lives here: {}", res_path.display());
+                println!(
+                    "successfully initialized! your file lives here: {}",
+                    res_path.display()
+                );
             }
         }
 
@@ -207,11 +217,11 @@ pub(crate) fn run(args: Cli) {
                     std::process::exit(1);
                 }
             }
-        },
+        }
 
         Some(Commands::Passwd { path }) => {
             todo!();
-        },
-        None => {},
+        }
+        None => {}
     }
 }

@@ -1,14 +1,8 @@
-use serde::{
-    Serialize,
-    Deserialize,
-};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use serde::{Deserialize, Serialize};
 use std::{
-    fs::{read_to_string, write, rename},
+    fs::{read_to_string, rename, write},
     io,
-};
-use base64::{
-    Engine,
-    engine::general_purpose::STANDARD,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -32,8 +26,8 @@ fn write_to_file(path: &str, data: &Eye) -> io::Result<()> {
 
 fn read_from_file(path: &str) -> io::Result<Eye> {
     let data = read_to_string(path)?;
-    let file: Eye = serde_json::from_str(&data)
-    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    let file: Eye =
+        serde_json::from_str(&data).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     Ok(file)
 }
 
