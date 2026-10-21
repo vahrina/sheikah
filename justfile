@@ -14,3 +14,6 @@ check:
 # run checks & prepare for release
 release: check
   cargo build --release
+
+install:
+  cargo install --path .

@@ -1,13 +1,24 @@
 use clap::Parser;
+
 mod args;
-mod codec;
-mod prompt;
-use crate::args::Cli;
+mod clip;
+mod commands;
+mod config;
+mod entry;
+mod signal;
+mod slate;
+mod ui;
 
 #[cfg(test)]
-mod cli_tests; // derive from `cli_tests.rs`
+mod cli_tests;
 
 fn main() {
-    let args = Cli::parse();
-    args::run(args);
+    signal::install();
+    let cli = args::Cli::parse();
+    ui::init_color(cli.plain);
+
+    if let Err(e) = commands::run(cli) {
+        eprintln!("{} {e:#}", ui::ebold("error:"));
+        std::process::exit(1);
+    }
 }
