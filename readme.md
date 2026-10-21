@@ -26,7 +26,41 @@ ln -sf "${CARGO_HOME:-$HOME/.cargo}/bin/sheikah" "${CARGO_HOME:-$HOME/.cargo}/bi
 ## dependencies
 
 - [`fzf`](https://github.com/junegunn/fzf)
-- a clipboard tool, [see below](#clipboard)
+- a clipboard tool, [see below](#clipboard) (optional)
+
+## get started
+
+### initializing a new slate
+
+a slate is the zelda-derived equivalent of a file where your secrets will be stored in - likewise the name "sheikah"
+
+```sh
+sheikah init
+```
+
+> optionally, you can specify a new name with the `-S` flag
+
+### basic operations
+
+adding, editing, deleting & viewing follow a similar pattern
+
+```sh
+sheikah add # or via arguments, see `sheikah help add`
+sheikah edit
+# yadeyadeyade
+```
+
+see [usage](#usage) for more in-depth examples
+
+### passwords, security & misc
+
+passwords will **always** have an interactive prompt to ensure security via [`rpassword`](https://crates.io/crates/rpassword). read more about the security aspect under [crypto](#crypto)
+
+also make sure all [requirements](#dependencies) are satisfied after initializing a new slate
+
+```sh
+sheikah doctor
+```
 
 ## usage
 
@@ -37,30 +71,30 @@ a quiet cli password manager for keyboard warriors
 Usage: sheikah [OPTIONS] [REF] [COMMAND]
 
 Commands:
-  show, -s    show an entry, or only the chosen fields
-  copy, -c    copy an entry's password to the clipboard (cleared after 45s)
-  list, -l    list all entries
-  find, -f    fuzzy pick with fzf, or substring search for QUERY
-  add, -a     add a new entry, interactively or via args
+  init        create a new slate where your secrets live
+  doctor      check tools & permissions
+  add, -a     basic operations
   edit, -e
   delete, -d
-  config, -C  edit the config in $EDITOR
-  init        create a new slate where your secrets live
+  show, -s    show an entry, or only the chosen fields
+  copy, -c    copy an entry's password to the clipboard (cleared after 45s)
+  list, -l
+  find, -f    fuzzy pick an entry, optionally seeded with QUERY
+  config, -C
   passwd      change the master password
-  doctor      check tools and slate permissions
-  version     print version
-  help        Print this message or the help of the given subcommand(s)
+  backup, -b  pick one of the last saves and restore it
+  help        print this message or the help of the given subcommand(s)
 
 Arguments:
   [REF]  entry to show: service name or search text
 
 Options:
-  -V, --version       print version
+  -V, --version
   -P, --plain         disable colors (respects NO_COLOR)
-  -S, --slate <NAME>  slate name or path/to/slate [env: SHEIKAH_SLATE=]
+  -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
 ```
 
-note that many command includes subcommands, make sure to skim through each one you're interested in:
+note that many command includes subcommands, make sure to skim through each one you're interested in (`help show` & `help -s` both work):
 
 ```sh
 $ sheikah help passwd
@@ -69,9 +103,8 @@ change the master password
 Usage: sheikah passwd [OPTIONS]
 
 Options:
-  -P          disable colors (also respects NO_COLOR)
-  -S <NAME>   slate name inside ~/.sheikah/ or a path (default: the only slate, `eye` for init) [env: SHEIKAH_SLATE=]
-  -h, --help  Print help
+  -P, --plain         disable colors (respects NO_COLOR)
+  -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
 ```
 
 ### example usages
@@ -83,7 +116,8 @@ $ sheikah -s github -p         # print only the password (for pipes)
 $ sheikah -c github            # copy its password (cleared after 45s)
 $ sheikah -l                   # list entries (no secrets)
 $ sheikah -lb                  # ... inside a box
-$ sheikah find [query]         # pick an entry interactively or specify the query directly
+$ sheikah find [query]         # fuzzy pick an entry, optionally seeded with a query
+$ sheikah -b                   # restore one of the last 5 saves
 $ sheikah doctor               # health check
 $ sheikah -C                   # adjust your preferred settings
 ```
@@ -92,7 +126,14 @@ every action works as a word or a single-dash flag
 
 `REF` resolves as: exact service name, else a unique substring match, else fuzzy finder (seeded with `REF`, so typos like `nflx` still find `netflix`)
 
-`-S` (or `$SHEIKAH_SLATE`) is a slate name under `~/.sheikah/` or a path, e.g. `sheikah -S work init`. omit the slate to resolve to the default path & name `~/.sheikah/eye`
+### multiple slates
+
+`-S` is a slate name under `~/.sheikah/` or a path, e.g. `sheikah -S work init`. `init` without `-S` creates `~/.sheikah/eye`
+
+- with only one slate, `-S` is never needed
+- a unique prefix is enough: `-S w` picks `work`
+- with several slates & no `-S`, fzf asks which one
+- `export SHEIKAH_SLATE=work` in your shell rc makes `work` the default, `-S` still overrides it
 
 ## clipboard
 
@@ -109,7 +150,8 @@ every action works as a word or a single-dash flag
 ## storage
 
 - `~/.sheikah/` is created with minimal owner permissions (`0700`), slate(s) with stricter permissions (`0600`)
-- `init` optionally runs `sudo chattr +a` on the dir ([ref](https://unix.stackexchange.com/questions/269020/what-is-the-effect-of-chattr-a-on-a-directory)), so files in it cannot be deleted or renamed. saves therefore overwrite in place, after copying the previous version to `<slate>.bak`
+- `init` optionally runs `sudo chattr +a` on the dir ([ref](https://unix.stackexchange.com/questions/269020/what-is-the-effect-of-chattr-a-on-a-directory)), so files in it cannot be deleted or renamed. saves therefore overwrite in place, after copying the previous version to a backup slot
+- backups rotate through `<slate>.1.bak` .. `<slate>.5.bak`, the oldest slot gets overwritten (never deleted). `sheikah backup` restores one; a backup keeps the master password it was saved with
 
 ## crypto
 

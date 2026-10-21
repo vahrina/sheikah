@@ -36,10 +36,6 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::Config { slate }) => cmd_config(slate.as_deref().or(s)),
         Some(Commands::Passwd) => cmd_passwd(s),
         Some(Commands::Doctor) => cmd_doctor(s),
-        Some(Commands::Version) => {
-            print!("{}", Cli::command().render_version());
-            Ok(())
-        }
         None => match cli.reference {
             Some(r) => cmd_show(
                 s,

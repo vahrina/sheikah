@@ -45,7 +45,6 @@ pub(crate) enum Commands {
     #[command(short_flag = 'c', disable_help_flag = true)]
     Copy { reference: Option<String> },
 
-    /// list all entries
     #[command(short_flag = 'l', disable_help_flag = true)]
     List {
         /// draw the table inside a box
@@ -73,7 +72,6 @@ pub(crate) enum Commands {
     #[command(short_flag = 'd', disable_help_flag = true)]
     Delete { reference: Option<String> },
 
-    /// edit the config with $EDITOR
     #[command(short_flag = 'C', disable_help_flag = true)]
     Config {
         /// slate name or path/to/slate
@@ -91,10 +89,6 @@ pub(crate) enum Commands {
     /// check tools & permissions
     #[command(disable_help_flag = true)]
     Doctor,
-
-    /// print version
-    #[command(disable_help_flag = true)]
-    Version,
 }
 
 #[derive(Args, Default)]
