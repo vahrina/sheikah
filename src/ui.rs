@@ -200,7 +200,7 @@ fn pad(s: &str, w: usize) -> String {
     format!("{s}{}", " ".repeat(w.saturating_sub(s.chars().count())))
 }
 
-pub(crate) const MASK: &str = "••••••";
+pub(crate) const MASK: &str = "•••";
 
 fn shown(v: Option<&str>, hide: bool) -> String {
     match v {

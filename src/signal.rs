@@ -35,7 +35,7 @@ pub(crate) fn interrupted() -> ! {
             .stderr(Stdio::null())
             .status();
     }
-    eprintln!("\n{}", ui::edim("interrupted."));
+    eprintln!("\n{}", ui::edim("interrupted"));
     exit(130);
 }
 

@@ -16,7 +16,7 @@ pub(crate) struct Find {
     pub(crate) fuzzy: bool,
 }
 
-/// fields hidden as `••••••` in `list` and `show` (explicit `show -p` etc. always reveals)
+/// fields hidden as `•••` in `list` and `show` (explicit `show -p` etc. always reveals)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(default)]
 pub(crate) struct Censor {
@@ -105,10 +105,9 @@ impl Default for Censor {
 }
 
 pub(crate) const HELP: &str = "\
-# sheikah config: saved encrypted inside your slate
-# censor: true hides a field as •••••• in list/show (show -p, -e, .. always reveal)
+# censor: hide a field as ••• in list/show
 # table.style: ascii | square | rounded | double | heavy | dashed
-# find.fuzzy: true makes `find <query>` use fzf too (find without a query always does)
+# find.fuzzy: enable fuzzy finding in `find <query>`
 ";
 
 #[cfg(test)]
