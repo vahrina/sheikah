@@ -60,7 +60,7 @@ pub(crate) fn now() -> String {
     rfc3339(secs)
 }
 
-fn rfc3339(secs: u64) -> String {
+pub(crate) fn rfc3339(secs: u64) -> String {
     let (days, rem) = (secs / 86_400, secs % 86_400);
     let (h, m, s) = (rem / 3600, rem % 3600 / 60, rem % 60);
 

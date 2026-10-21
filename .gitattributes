@@ -1,0 +1,4 @@
+*.sh text eol=lf
+justfile text eol=lf
+.github/workflows/* text eol=lf
+src/* text eol=lf

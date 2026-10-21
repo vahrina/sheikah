@@ -1,6 +1,5 @@
 use anyhow::{Context, Result, bail};
 use clap::CommandFactory;
-use rand::RngExt;
 use std::{
     env::var_os,
     fs,
@@ -8,14 +7,14 @@ use std::{
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
+    time::UNIX_EPOCH,
 };
-use zeroize::Zeroizing;
 
 use crate::{
     args::{AddArgs, Cli, Commands, ShowArgs},
     clip,
     config::{self, Config},
-    entry::Entry,
+    entry::{self, Entry},
     slate::{self, Slate},
     ui,
 };
@@ -24,18 +23,29 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
     // `$SHEIKAH_VAULT` predates the slate rename
     let env_vault = var_os("SHEIKAH_VAULT").map(|v| v.to_string_lossy().into_owned());
     let s = cli.slate.as_deref().or(env_vault.as_deref());
+
+    let needs_fzf = !matches!(
+        (&cli.command, &cli.reference),
+        (Some(Commands::Doctor | Commands::Help { .. }), _) | (None, None)
+    );
+    if needs_fzf && !clip::on_path("fzf") {
+        bail!(ui::FZF_MISSING);
+    }
+
     match cli.command {
-        Some(Commands::Init) => cmd_init(s),
         Some(Commands::Add(a)) => cmd_add(s, a),
-        Some(Commands::Show(a)) => cmd_show(s, a),
-        Some(Commands::Copy { reference }) => cmd_copy(s, reference.as_deref().unwrap_or("")),
-        Some(Commands::List { boxed }) => cmd_list(s, boxed),
-        Some(Commands::Find { query, boxed }) => cmd_find(s, query.as_deref().unwrap_or(""), boxed),
         Some(Commands::Edit { reference }) => cmd_edit(s, reference.as_deref().unwrap_or("")),
         Some(Commands::Delete { reference }) => cmd_delete(s, reference.as_deref().unwrap_or("")),
         Some(Commands::Config { slate }) => cmd_config(slate.as_deref().or(s)),
+        Some(Commands::Init) => cmd_init(s),
         Some(Commands::Passwd) => cmd_passwd(s),
         Some(Commands::Doctor) => cmd_doctor(s),
+        Some(Commands::Backup) => cmd_backup(s),
+        Some(Commands::Show(a)) => cmd_show(s, a),
+        Some(Commands::Copy { reference }) => cmd_copy(s, reference.as_deref().unwrap_or("")),
+        Some(Commands::List { boxed }) => cmd_list(s, boxed),
+        Some(Commands::Find { query }) => cmd_find(s, query.as_deref().unwrap_or("")),
+        Some(Commands::Help { command }) => cmd_help(command.as_deref()),
         None => match cli.reference {
             Some(r) => cmd_show(
                 s,
@@ -44,12 +54,28 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
                     ..Default::default()
                 },
             ),
-            None => {
-                Cli::command().print_help()?;
-                Ok(())
-            }
+            None => cmd_help(None),
         },
     }
+}
+
+/// `help show` or `help -s`
+fn cmd_help(sub: Option<&str>) -> Result<()> {
+    let mut cmd = Cli::command();
+    cmd.build();
+    let Some(sub) = sub else {
+        cmd.print_help()?;
+        return Ok(());
+    };
+    let short = sub.strip_prefix('-').and_then(|f| f.parse::<char>().ok());
+    match cmd
+        .get_subcommands_mut()
+        .find(|c| c.get_name() == sub || short.is_some_and(|f| c.get_short_flag() == Some(f)))
+    {
+        Some(c) => c.print_help()?,
+        None => bail!("unknown command: {sub}"),
+    }
+    Ok(())
 }
 
 /// `~/.sheikah/eye` instead of `/home/you/.sheikah/eye`
@@ -98,26 +124,7 @@ fn cmd_init(name: Option<&str>) -> Result<()> {
             )),
         }
     }
-
-    if !clip::on_path("fzf") {
-        ui::note("fzf was not found on $PATH; install it for fuzzy finding");
-    }
     Ok(())
-}
-
-const GEN_CHARS: &[u8] =
-    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*-_=+?.:";
-
-pub(crate) fn generate(len: usize) -> Result<Zeroizing<String>> {
-    if !(8..=256).contains(&len) {
-        bail!("-g length must be between 8 and 256");
-    }
-    let mut rng = rand::rng();
-    Ok(Zeroizing::new(
-        (0..len)
-            .map(|_| GEN_CHARS[rng.random_range(0..GEN_CHARS.len())] as char)
-            .collect(),
-    ))
 }
 
 fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
@@ -143,14 +150,7 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     let url = field(a.domain, "url")?;
     let category = field(a.category, "category")?;
     let notes = field(a.notes, "notes")?;
-    let password = match a.generate {
-        Some(len) => {
-            let p = generate(len)?;
-            eprintln!("{} {}", ui::edim("generated"), ui::ebold(&p));
-            p
-        }
-        None => ui::new_secret("password")?,
-    };
+    let password = ui::new_secret("password")?;
 
     let mut e = Entry::new(service, password.to_string());
     e.username = username;
@@ -172,17 +172,13 @@ fn cmd_list(name: Option<&str>, boxed: bool) -> Result<()> {
     Ok(())
 }
 
-fn cmd_find(name: Option<&str>, q: &str, boxed: bool) -> Result<()> {
+fn cmd_find(name: Option<&str>, q: &str) -> Result<()> {
     let s = unlock(name)?;
-    if q.is_empty() || s.config.find.fuzzy {
-        let i = ui::pick(&s.entries, &sorted(&s.entries), q)?;
-        ui::detail(&s.entries[i], &s.config, &[]);
-        return Ok(());
+    if s.entries.is_empty() {
+        bail!("slate is empty (add one with `sheikah add`)");
     }
-    match filter(&s.entries, q).as_slice() {
-        [one] => ui::detail(&s.entries[*one], &s.config, &[]),
-        hits => ui::table(&s.entries, hits, &s.config, boxed),
-    }
+    let i = ui::pick(&s.entries, &sorted(&s.entries), q)?;
+    ui::detail(&s.entries[i], &s.config, &[]);
     Ok(())
 }
 
@@ -266,6 +262,39 @@ fn cmd_delete(name: Option<&str>, r: &str) -> Result<()> {
     let e = s.entries.remove(i);
     s.save()?;
     ui::say(&format!("deleted {}", e.service));
+    Ok(())
+}
+
+fn cmd_backup(name: Option<&str>) -> Result<()> {
+    let path = slate::resolve(name)?;
+    let baks = slate::backups(&path);
+    if baks.is_empty() {
+        bail!(
+            "no backups of {} yet, one is made on every save",
+            tilde(&path)
+        );
+    }
+    let lines: Vec<(usize, String)> = baks
+        .iter()
+        .enumerate()
+        .map(|(i, (p, t))| {
+            let secs = t.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            (i, format!("{}  {}", entry::rfc3339(secs), tilde(p)))
+        })
+        .collect();
+    let bak = &baks[ui::choose(&lines, "")?].0;
+
+    if !ui::confirm(&format!(
+        "restore {}? the current slate becomes a backup",
+        tilde(bak)
+    ))? {
+        ui::say("nothing restored");
+        return Ok(());
+    }
+    ui::note("the backup keeps the master password it was saved with");
+    let pass = ui::secret("master password")?;
+    slate::restore(&path, bak, &pass)?;
+    ui::say(&format!("restored {}", tilde(bak)));
     Ok(())
 }
 
@@ -361,7 +390,11 @@ fn cmd_doctor(name: Option<&str>) -> Result<()> {
         ],
         None => ["~/.sheikah".into(), "-".into(), "missing".into()],
     });
-    if let Ok(p) = slate::resolve(name) {
+    let slates = match name {
+        Some(n) => slate::resolve(Some(n)).into_iter().collect(),
+        None => slate::all().unwrap_or_default(),
+    };
+    for p in slates {
         let m = mode(&p).unwrap_or(0);
         rows.push([
             tilde(&p),
@@ -472,14 +505,5 @@ mod tests {
         assert_eq!(find_ref(&e, "proton").unwrap(), 0);
         assert_eq!(find_ref(&e, "flix").unwrap(), 2);
         assert!(find_ref(&[], "x").is_err());
-    }
-
-    #[test]
-    fn generated_passwords() {
-        let p = generate(24).unwrap();
-        assert_eq!(p.len(), 24);
-        assert!(p.bytes().all(|b| GEN_CHARS.contains(&b)));
-        assert_ne!(*p, *generate(24).unwrap());
-        assert!(generate(4).is_err());
     }
 }

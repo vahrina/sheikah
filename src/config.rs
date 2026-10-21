@@ -6,14 +6,6 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct Config {
     pub(crate) censor: Censor,
     pub(crate) table: Table,
-    pub(crate) find: Find,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-#[serde(default)]
-pub(crate) struct Find {
-    /// `find <query>` opens fzf seeded with the query instead of a substring table
-    pub(crate) fuzzy: bool,
 }
 
 /// fields hidden as `•••` in `list` and `show` (explicit `show -p` etc. always reveals)
@@ -107,7 +99,6 @@ impl Default for Censor {
 pub(crate) const HELP: &str = "\
 # censor: hide a field as ••• in list/show
 # table.style: ascii | square | rounded | double | heavy | dashed
-# find.fuzzy: enable fuzzy finding in `find <query>`
 ";
 
 #[cfg(test)]
@@ -125,5 +116,8 @@ mod tests {
 
         let back: Config = toml::from_str(&toml::to_string(&c).unwrap()).unwrap();
         assert_eq!(back, c);
+
+        let old: Config = toml::from_str("[find]\nfuzzy = true").unwrap();
+        assert_eq!(old, Config::default());
     }
 }

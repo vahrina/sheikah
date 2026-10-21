@@ -1,5 +1,6 @@
 use super::*;
 use crate::args::{Cli, Commands};
+use clap::CommandFactory;
 use rpassword::{ConfigBuilder, read_password_with_config};
 
 fn parse(args: &[&str]) -> Cli {
@@ -19,7 +20,6 @@ fn add_with_all_args() {
         "v",
         "-n",
         "funny note",
-        "-g",
     ]);
     match cli.command {
         Some(Commands::Add(a)) => {
@@ -27,7 +27,6 @@ fn add_with_all_args() {
             assert_eq!(a.category.as_deref(), Some("misc"));
             assert_eq!(a.user.as_deref(), Some("v"));
             assert_eq!(a.notes.as_deref(), Some("funny note"));
-            assert_eq!(a.generate, Some(24));
         }
         _ => std::panic!("expected Add command"),
     }
@@ -57,13 +56,27 @@ fn combined_short_flags() {
         }
         _ => std::panic!("expected Show"),
     }
-    match parse(&["sheikah", "-fb", "net"]).command {
-        Some(Commands::Find { query, boxed }) => {
-            assert_eq!(query.as_deref(), Some("net"));
-            assert!(boxed);
-        }
+    match parse(&["sheikah", "-f", "net"]).command {
+        Some(Commands::Find { query }) => assert_eq!(query.as_deref(), Some("net")),
         _ => std::panic!("expected Find"),
     }
+    assert!(matches!(
+        parse(&["sheikah", "-b"]).command,
+        Some(Commands::Backup)
+    ));
+}
+
+#[test]
+fn help_by_word_or_flag() {
+    for args in [["sheikah", "help", "show"], ["sheikah", "help", "-s"]] {
+        match parse(&args).command {
+            Some(Commands::Help { command }) => assert!(command.is_some()),
+            _ => std::panic!("expected Help"),
+        }
+    }
+    let help = Cli::command().render_help().to_string();
+    assert!(help.contains("print this message or the help of the given subcommand(s)"));
+    assert!(!help.contains("Print this message"));
 }
 
 #[test]

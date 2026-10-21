@@ -4,17 +4,21 @@ a quiet cli password manager with one encrypted slate, no daemon/tui (yet)
 
 ## installation
 
-because this isn't published on [crates.io](https://crates.io/), & probably never will be, feel free to compile it from source (with [just](https://github.com/casey/just#installation)):
+easiest: grab the latest [release](https://github.com/vahrina/sheikah/releases) binary (linux x86_64/arm64)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/vahrina/sheikah/main/install.sh
+less install.sh # never blindly pipe into bash plz
+bash install.sh
+```
+
+> run again to update
+
+from source (needs a rust toolchain):
 
 ```sh
 git clone https://github.com/vahrina/sheikah && cd sheikah
-just install
-```
-
-or without just:
-
-```sh
-cargo install --path .
+just install   # or: cargo install --path .
 ```
 
 if you'd like to give it a new name, symlink it afterwards:
@@ -23,9 +27,12 @@ if you'd like to give it a new name, symlink it afterwards:
 ln -sf "${CARGO_HOME:-$HOME/.cargo}/bin/sheikah" "${CARGO_HOME:-$HOME/.cargo}/bin/<your desired alias>"
 ```
 
+to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag` (pushes `vX.Y.Z` & triggers the release workflow)
+
 ## dependencies
 
-- [`fzf`](https://github.com/junegunn/fzf)
+- [`fzf`](https://github.com/junegunn/fzf) (required)
+- [`just`](https://github.com/casey/just#installation) (required)
 - a clipboard tool, [see below](#clipboard) (optional)
 
 ## get started

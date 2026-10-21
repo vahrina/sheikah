@@ -110,8 +110,35 @@ fn or_dash(f: &Option<String>) -> String {
     f.as_deref().map(clean).unwrap_or_else(|| "-".into())
 }
 
+pub(crate) const FZF_MISSING: &str = "fzf required: https://github.com/junegunn/fzf#installation";
+
 /// fuzzy-pick one entry with fzf; returns its index into `entries`
 pub(crate) fn pick(entries: &[Entry], idx: &[usize], query: &str) -> Result<usize> {
+    let rows: Vec<[String; 3]> = idx
+        .iter()
+        .map(|&i| {
+            let e = &entries[i];
+            [
+                clean(&e.service),
+                or_dash(&e.username),
+                or_dash(&e.category),
+            ]
+        })
+        .collect();
+    let w = widths(&rows);
+    let lines: Vec<(usize, String)> = idx
+        .iter()
+        .zip(&rows)
+        .map(|(&i, r)| {
+            let line = format!("{:<a$}  {:<b$}  {}", r[0], r[1], r[2], a = w[0], b = w[1]);
+            (i, line)
+        })
+        .collect();
+    choose(&lines, query)
+}
+
+/// fuzzy-pick one of `(id, line)` with fzf; returns the chosen id
+pub(crate) fn choose(lines: &[(usize, String)], query: &str) -> Result<usize> {
     let color = if ERR.load(Relaxed) {
         "--color=fg:7,bg:-1,hl:15,fg+:15,bg+:236,hl+:15,info:8,prompt:8,pointer:15,marker:8,query:15"
     } else {
@@ -138,44 +165,21 @@ pub(crate) fn pick(entries: &[Entry], idx: &[usize], query: &str) -> Result<usiz
         .stdout(Stdio::piped())
         .spawn()
         .map_err(|e| match e.kind() {
-            ErrorKind::NotFound => anyhow::anyhow!(
-                "fzf is required for fuzzy matching but was not found on $PATH\n\
-                 install it, e.g. `sudo apt install fzf`, `sudo pacman -S fzf` or `brew install fzf`"
-            ),
+            ErrorKind::NotFound => anyhow::anyhow!(FZF_MISSING),
             _ => anyhow::Error::new(e).context("cannot run fzf"),
         })?;
 
     {
         let mut stdin = child.stdin.take().context("fzf stdin")?;
-        let rows: Vec<[String; 3]> = idx
-            .iter()
-            .map(|&i| {
-                let e = &entries[i];
-                [
-                    clean(&e.service),
-                    or_dash(&e.username),
-                    or_dash(&e.category),
-                ]
-            })
-            .collect();
-        let w = widths(&rows);
-        for (&i, r) in idx.iter().zip(&rows) {
-            let _ = writeln!(
-                stdin,
-                "{i}\t{:<a$}  {:<b$}  {}",
-                r[0],
-                r[1],
-                r[2],
-                a = w[0],
-                b = w[1]
-            );
+        for (i, line) in lines {
+            let _ = writeln!(stdin, "{i}\t{line}");
         }
     }
 
     let out = child.wait_with_output()?;
     match out.status.code() {
         Some(0) => {}
-        Some(1) => bail!("no matching entry"),
+        Some(1) => bail!("no match"),
         Some(130) => crate::signal::interrupted(),
         _ => bail!("fzf failed"),
     }

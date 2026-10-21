@@ -5,11 +5,13 @@ use aes_gcm::{
 use anyhow::{Context, Result, bail};
 use argon2::{Algorithm, Argon2, Params, Version};
 use std::{
+    cmp::Reverse,
     env::var_os,
     fs::{self, DirBuilder, OpenOptions},
     io::Write,
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
+    time::SystemTime,
 };
 use zeroize::Zeroizing;
 
@@ -19,6 +21,7 @@ const SALT_LEN: usize = 16;
 const NONCE_LEN: usize = 12;
 const TAG_LEN: usize = 16;
 pub(crate) const DEFAULT_NAME: &str = "eye";
+pub(crate) const BACKUPS: usize = 5;
 
 // m KiB, t, p. not stored in the file: `open` also tries LEGACY, and the next save upgrades
 #[cfg(not(test))]
@@ -68,16 +71,8 @@ pub(crate) fn init_path(name: Option<&str>) -> Result<PathBuf> {
     named(name.unwrap_or(DEFAULT_NAME))
 }
 
-/// existing slate: the given name/path, else the only slate in `~/.sheikah/`
-pub(crate) fn resolve(name: Option<&str>) -> Result<PathBuf> {
-    if let Some(n) = name {
-        let p = named(n)?;
-        if !p.is_file() {
-            bail!("no slate at {}", p.display());
-        }
-        return Ok(p);
-    }
-
+/// every slate in `~/.sheikah/`, sorted
+pub(crate) fn all() -> Result<Vec<PathBuf>> {
     let dir = dir()?;
     let mut slates: Vec<PathBuf> = fs::read_dir(&dir)
         .with_context(|| format!("cannot read {} (run `sheikah init` first)", dir.display()))?
@@ -85,19 +80,97 @@ pub(crate) fn resolve(name: Option<&str>) -> Result<PathBuf> {
         .filter(|p| p.is_file() && p.extension().is_none_or(|e| e != "bak"))
         .collect();
     slates.sort();
+    Ok(slates)
+}
 
-    match slates.as_slice() {
-        [only] => Ok(only.clone()),
-        [] => bail!("no slate in {} (run `sheikah init`)", dir.display()),
-        many => bail!(
-            "more than one slate in {}: {}\npick one with -S <NAME>",
-            dir.display(),
-            many.iter()
-                .filter_map(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
+fn file_name(p: &Path) -> String {
+    p.file_name()
+        .map(|f| f.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+fn pick_slate(slates: &[PathBuf], query: &str) -> Result<PathBuf> {
+    let lines: Vec<(usize, String)> = slates
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (i, file_name(p)))
+        .collect();
+    Ok(slates[crate::ui::choose(&lines, query)?].clone())
+}
+
+/// existing slate: the given name/path or a unique name prefix, else the only slate in
+/// `~/.sheikah/`. ambiguity opens fzf
+pub(crate) fn resolve(name: Option<&str>) -> Result<PathBuf> {
+    if let Some(n) = name {
+        let p = named(n)?;
+        if p.is_file() {
+            return Ok(p);
+        }
+        if !n.contains('/') {
+            let hits: Vec<PathBuf> = all()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|s| file_name(s).starts_with(n))
+                .collect();
+            match hits.as_slice() {
+                [] => {}
+                [one] => return Ok(one.clone()),
+                many => return pick_slate(many, n),
+            }
+        }
+        bail!("no slate at {}", p.display());
     }
+
+    match all()?.as_slice() {
+        [only] => Ok(only.clone()),
+        [] => bail!("no slate in {} (run `sheikah init`)", dir()?.display()),
+        many => pick_slate(many, ""),
+    }
+}
+
+/// `<slate>.1.bak` ..= `<slate>.N.bak`
+fn backup_slots(path: &Path) -> Vec<PathBuf> {
+    let name = file_name(path);
+    (1..=BACKUPS)
+        .map(|n| path.with_file_name(format!("{name}.{n}.bak")))
+        .collect()
+}
+
+fn mtime(p: &Path) -> Option<SystemTime> {
+    fs::metadata(p).and_then(|m| m.modified()).ok()
+}
+
+/// existing backups of a slate, newest first; includes the pre-0.2 `<slate>.bak`
+pub(crate) fn backups(path: &Path) -> Vec<(PathBuf, SystemTime)> {
+    let mut slots = backup_slots(path);
+    slots.push(path.with_file_name(format!("{}.bak", file_name(path))));
+    let mut found: Vec<(PathBuf, SystemTime)> = slots
+        .into_iter()
+        .filter_map(|p| mtime(&p).map(|t| (p, t)))
+        .collect();
+    found.sort_by_key(|b| Reverse(b.1));
+    found
+}
+
+/// first free slot, else the oldest. slots get overwritten, never deleted: `chattr +a`
+fn next_backup(path: &Path) -> PathBuf {
+    let slots = backup_slots(path);
+    match slots.iter().find(|p| !p.exists()) {
+        Some(free) => free.clone(),
+        None => slots
+            .into_iter()
+            .min_by_key(|p| mtime(p))
+            .expect("BACKUPS > 0"),
+    }
+}
+
+/// replaces the slate with `backup` if `pass` opens it; the current slate becomes a backup
+pub(crate) fn restore(path: &Path, backup: &Path, pass: &str) -> Result<()> {
+    let blob = fs::read(backup).with_context(|| format!("cannot read {}", backup.display()))?;
+    open(pass, &blob)?;
+    let _guard = crate::signal::Critical::enter();
+    write_file(&next_backup(path), &fs::read(path)?)?;
+    write_file(path, &blob)
 }
 
 fn derive_key(pass: &str, salt: &[u8], (m, t, p): (u32, u32, u32)) -> Result<Zeroizing<[u8; 32]>> {
@@ -196,7 +269,7 @@ impl Slate {
 
     /// re-encrypts with a fresh salt + nonce.
     ///
-    /// writes in place (after copying the old file to `<slate>.bak`) instead of
+    /// writes in place (after copying the old file to a backup slot) instead of
     /// tmp + rename, since rename cannot replace files in a `chattr +a` dir
     pub(crate) fn save(&self) -> Result<()> {
         let plain = Zeroizing::new(serde_json::to_vec(&serde_json::json!({
@@ -205,10 +278,8 @@ impl Slate {
         }))?);
         let blob = seal(&self.pass, &plain)?;
 
-        let mut bak = self.path.clone().into_os_string();
-        bak.push(".bak");
         let _guard = crate::signal::Critical::enter();
-        write_file(Path::new(&bak), &fs::read(&self.path)?)?;
+        write_file(&next_backup(&self.path), &fs::read(&self.path)?)?;
         write_file(&self.path, &blob)
     }
 
@@ -237,9 +308,15 @@ mod tests {
 
     fn tmp(name: &str) -> PathBuf {
         let p = std::env::temp_dir().join(format!("sheikah-test-{}-{name}", std::process::id()));
-        let _ = fs::remove_file(&p);
-        let _ = fs::remove_file(p.with_extension("bak"));
+        cleanup(&p);
         p
+    }
+
+    fn cleanup(p: &Path) {
+        let _ = fs::remove_file(p);
+        for b in backup_slots(p) {
+            let _ = fs::remove_file(b);
+        }
     }
 
     #[test]
@@ -277,7 +354,30 @@ mod tests {
         let v = Slate::load(path.clone(), Zeroizing::new("new".into())).unwrap();
         assert_eq!(v.entries.len(), 1);
 
-        let _ = fs::remove_file(&path);
-        let _ = fs::remove_file(path.with_extension("bak"));
+        cleanup(&path);
+    }
+
+    #[test]
+    fn backups_rotate_and_restore() {
+        let path = tmp("rotate");
+        init(&path, "pw").unwrap();
+        let mut v = Slate::load(path.clone(), Zeroizing::new("pw".into())).unwrap();
+        for i in 0..BACKUPS + 2 {
+            v.entries.push(Entry::new(format!("s{i}"), "x".into()));
+            v.save().unwrap();
+            // slots rotate by mtime
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let baks = backups(&path);
+        assert_eq!(baks.len(), BACKUPS);
+
+        let newest = &baks[0].0;
+        assert!(restore(&path, newest, "wrong").is_err());
+        restore(&path, newest, "pw").unwrap();
+        let v = Slate::load(path.clone(), Zeroizing::new("pw".into())).unwrap();
+        assert_eq!(v.entries.len(), BACKUPS + 1);
+        assert_eq!(backups(&path).len(), BACKUPS);
+
+        cleanup(&path);
     }
 }

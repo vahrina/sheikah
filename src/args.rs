@@ -6,7 +6,8 @@ use clap::{ArgAction, Args, Parser, Subcommand};
     about = "a quiet cli password manager for keyboard warriors",
     version,
     disable_help_flag = true,
-    disable_version_flag = true
+    disable_version_flag = true,
+    disable_help_subcommand = true
 )]
 pub(crate) struct Cli {
     #[arg(short = 'V', long = "version", action = ArgAction::Version)]
@@ -20,7 +21,7 @@ pub(crate) struct Cli {
     #[arg(short = 'P', long = "plain", global = true)]
     pub(crate) plain: bool,
 
-    /// slate name or path/to/slate
+    /// slate name (or unique prefix) or path/to/slate
     #[arg(
         short = 'S',
         long = "slate",
@@ -37,6 +38,23 @@ pub(crate) struct Cli {
 /// every action works as a word (`list`) or a short flag (`-l`)
 #[derive(Subcommand)]
 pub(crate) enum Commands {
+    /// create a new slate where your secrets live
+    #[command(disable_help_flag = true)]
+    Init,
+
+    /// check tools & permissions
+    #[command(disable_help_flag = true)]
+    Doctor,
+
+    #[command(short_flag = 'a', disable_help_flag = true)]
+    Add(AddArgs),
+
+    #[command(short_flag = 'e', disable_help_flag = true)]
+    Edit { reference: Option<String> },
+
+    #[command(short_flag = 'd', disable_help_flag = true)]
+    Delete { reference: Option<String> },
+
     /// show an entry, or only the chosen fields
     #[command(short_flag = 's', disable_help_flag = true)]
     Show(ShowArgs),
@@ -52,43 +70,34 @@ pub(crate) enum Commands {
         boxed: bool,
     },
 
-    /// fuzzy pick with fzf, or substring search for QUERY
+    /// fuzzy pick an entry, optionally seeded with QUERY
     #[command(short_flag = 'f', disable_help_flag = true)]
     Find {
-        /// text to match against service, username, email, url, notes & category
+        /// text to match against service, username & category
         query: Option<String>,
-
-        /// draw the table inside a box
-        #[arg(short)]
-        boxed: bool,
     },
 
-    #[command(short_flag = 'a', disable_help_flag = true)]
-    Add(AddArgs),
-
-    #[command(short_flag = 'e', disable_help_flag = true)]
-    Edit { reference: Option<String> },
-
-    #[command(short_flag = 'd', disable_help_flag = true)]
-    Delete { reference: Option<String> },
-
+    // open the config with your preferred $EDITOR
     #[command(short_flag = 'C', disable_help_flag = true)]
     Config {
         /// slate name or path/to/slate
         slate: Option<String>,
     },
 
-    /// create a new slate where your secrets live
-    #[command(disable_help_flag = true)]
-    Init,
-
     /// change the master password
     #[command(disable_help_flag = true)]
     Passwd,
 
-    /// check tools & permissions
+    /// pick one of the last saves & restore it
+    #[command(short_flag = 'b', disable_help_flag = true)]
+    Backup,
+
+    /// print this message or the help of the given subcommand(s)
     #[command(disable_help_flag = true)]
-    Doctor,
+    Help {
+        #[arg(allow_hyphen_values = true)]
+        command: Option<String>,
+    },
 }
 
 #[derive(Args, Default)]
@@ -143,8 +152,4 @@ pub(crate) struct AddArgs {
     /// optional notes
     #[arg(short, value_name = "STR")]
     pub(crate) notes: Option<String>,
-
-    /// generate a password of LEN chars instead of typing one
-    #[arg(short, value_name = "LEN", num_args = 0..=1, default_missing_value = "24")]
-    pub(crate) generate: Option<usize>,
 }
