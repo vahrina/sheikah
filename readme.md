@@ -4,11 +4,17 @@ a quiet cli password manager with one encrypted slate, no daemon/tui (yet)
 
 ## installation
 
-because this isn't published on [crates.io](https://crates.io/), & probably never will be, feel free to compile it from source:
+because this isn't published on [crates.io](https://crates.io/), & probably never will be, feel free to compile it from source (with [just](https://github.com/casey/just#installation)):
 
 ```sh
 git clone https://github.com/vahrina/sheikah && cd sheikah
 just install
+```
+
+or without just:
+
+```sh
+cargo install --path .
 ```
 
 if you'd like to give it a new name, symlink it afterwards:

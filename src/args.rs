@@ -21,7 +21,13 @@ pub(crate) struct Cli {
     pub(crate) plain: bool,
 
     /// slate name or path/to/slate
-    #[arg(short = 'S', long = "slate", global = true, value_name = "NAME", env = "SHEIKAH_SLATE")]
+    #[arg(
+        short = 'S',
+        long = "slate",
+        global = true,
+        value_name = "NAME",
+        env = "SHEIKAH_SLATE"
+    )]
     pub(crate) slate: Option<String>,
 
     #[command(subcommand)]

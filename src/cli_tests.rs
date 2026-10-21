@@ -71,15 +71,20 @@ fn help_and_version_without_long_flags() {
     use clap::error::ErrorKind;
     let kind = |args: &[&str]| Cli::try_parse_from(args).err().map(|e| e.kind());
     assert_eq!(kind(&["sheikah", "-h"]), Some(ErrorKind::DisplayHelp));
-    assert_eq!(kind(&["sheikah", "list", "-h"]), Some(ErrorKind::DisplayHelp));
+    assert_eq!(
+        kind(&["sheikah", "list", "-h"]),
+        Some(ErrorKind::DisplayHelp)
+    );
     assert_eq!(kind(&["sheikah", "-V"]), Some(ErrorKind::DisplayVersion));
     assert!(matches!(
         parse(&["sheikah", "version"]).command,
         Some(Commands::Version)
     ));
     for long in ["--help", "--version"] {
-        assert!(Cli::try_parse_from(["sheikah", long]).is_err_and(|e| e.kind()
-            == ErrorKind::UnknownArgument));
+        assert!(
+            Cli::try_parse_from(["sheikah", long])
+                .is_err_and(|e| e.kind() == ErrorKind::UnknownArgument)
+        );
     }
 }
 

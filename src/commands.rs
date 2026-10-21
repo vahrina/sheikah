@@ -30,9 +30,7 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::Show(a)) => cmd_show(s, a),
         Some(Commands::Copy { reference }) => cmd_copy(s, reference.as_deref().unwrap_or("")),
         Some(Commands::List { boxed }) => cmd_list(s, boxed),
-        Some(Commands::Find { query, boxed }) => {
-            cmd_find(s, query.as_deref().unwrap_or(""), boxed)
-        }
+        Some(Commands::Find { query, boxed }) => cmd_find(s, query.as_deref().unwrap_or(""), boxed),
         Some(Commands::Edit { reference }) => cmd_edit(s, reference.as_deref().unwrap_or("")),
         Some(Commands::Delete { reference }) => cmd_delete(s, reference.as_deref().unwrap_or("")),
         Some(Commands::Config { slate }) => cmd_config(slate.as_deref().or(s)),
