@@ -4,17 +4,32 @@ a quiet cli password manager with one encrypted slate, no daemon/tui (yet)
 
 ## installation
 
-easiest: grab the latest [release](https://github.com/vahrina/sheikah/releases) binary (linux x86_64/arm64)
+three ways. linux only (`x86_64` / `aarch64`).
+
+### installer
+
+downloads the right release archive for your machine into `~/.local/bin`
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vahrina/sheikah/main/install.sh
-less install.sh # never blindly pipe into bash plz
+curl -fsSL https://raw.githubusercontent.com/vahrina/sheikah/main/install.sh -o install.sh \
+  && less $_
 bash install.sh
 ```
 
 > run again to update
 
-from source (needs a rust toolchain):
+### manual
+
+grab `sheikah-vX.Y.Z-<arch>.tar.gz` from [releases](https://github.com/vahrina/sheikah/releases), then:
+
+```sh
+tar -xzf sheikah-v0.2.0-x86_64.tar.gz
+install -m 755 sheikah ~/.local/bin/sheikah
+```
+
+### source
+
+needs a rust toolchain (+ [`just`](https://github.com/casey/just#installation) optional):
 
 ```sh
 git clone https://github.com/vahrina/sheikah && cd sheikah
@@ -32,8 +47,8 @@ to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag` (push
 ## dependencies
 
 - [`fzf`](https://github.com/junegunn/fzf) (required)
-- [`just`](https://github.com/casey/just#installation) (required)
 - a clipboard tool, [see below](#clipboard) (optional)
+- [`just`](https://github.com/casey/just#installation) (optional, from-source only)
 
 ## get started
 

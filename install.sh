@@ -45,11 +45,11 @@ need uname
 need mktemp
 
 os=$(uname -s)
-arch=$(uname -m)
-case "$os:$arch" in
-  Linux:x86_64 | Linux:amd64) target=x86_64-unknown-linux-gnu ;;
-  Linux:aarch64 | Linux:arm64) target=aarch64-unknown-linux-gnu ;;
-  *) die "linux only (got $os $arch); build from source instead" ;;
+machine=$(uname -m)
+case "$os:$machine" in
+  Linux:x86_64 | Linux:amd64) arch=x86_64 ;;
+  Linux:aarch64 | Linux:arm64) arch=aarch64 ;;
+  *) die "linux only (got $os $machine); build from source instead" ;;
 esac
 
 api="https://api.github.com/repos/$REPO/releases"
@@ -61,7 +61,7 @@ elif [[ "$TAG" != v* ]]; then
 fi
 
 base="https://github.com/$REPO/releases/download/$TAG"
-archive="sheikah-${TAG}-${target}.tar.gz"
+archive="sheikah-${TAG}-${arch}.tar.gz"
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
