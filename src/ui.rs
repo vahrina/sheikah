@@ -246,22 +246,36 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
         return;
     }
     let c = &cfg.censor;
-    let head = ["service", "username", "email", "category"].map(String::from);
-    let rows: Vec<[String; 4]> = idx
+    let index = cfg.table.index;
+    let mut head: Vec<String> = ["service", "username", "email", "category"]
+        .map(String::from)
+        .to_vec();
+    if index {
+        head.insert(0, "#".into());
+    }
+    let rows: Vec<Vec<String>> = idx
         .iter()
-        .map(|&i| {
+        .enumerate()
+        .map(|(n, &i)| {
             let e = &entries[i];
-            [
+            let mut r = vec![
                 shown(Some(&e.service), c.service),
                 shown(e.username.as_deref(), c.username),
                 shown(e.email.as_deref(), c.email),
                 shown(e.category.as_deref(), c.category),
-            ]
+            ];
+            if index {
+                r.insert(0, (n + 1).to_string());
+            }
+            r
         })
         .collect();
-    let mut w = widths(&rows);
-    for (c, h) in head.iter().enumerate() {
-        w[c] = w[c].max(h.len());
+    let cols = head.len();
+    let mut w: Vec<usize> = head.iter().map(|h| h.chars().count()).collect();
+    for r in &rows {
+        for (c, cell) in r.iter().enumerate() {
+            w[c] = w[c].max(cell.chars().count());
+        }
     }
 
     let boxed = boxed || cfg.table.boxed;
@@ -274,8 +288,8 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
             _ => p,
         }
     };
-    let line = |r: &[String; 4], header: bool| -> String {
-        let cells: Vec<String> = (0..4).map(|c| cell(&r[c], c, header)).collect();
+    let line = |r: &[String], header: bool| -> String {
+        let cells: Vec<String> = (0..cols).map(|c| cell(&r[c], c, header)).collect();
         if boxed {
             let bar = dim(&g.v.to_string());
             format!("{bar} {} {bar}", cells.join(&format!(" {bar} ")))

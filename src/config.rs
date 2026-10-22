@@ -26,6 +26,8 @@ pub(crate) struct Censor {
 pub(crate) struct Table {
     /// always draw a box, not only with `-b`
     pub(crate) boxed: bool,
+    /// a leading `#` column counting rows from 1
+    pub(crate) index: bool,
     pub(crate) style: BoxStyle,
 }
 
@@ -99,6 +101,7 @@ impl Default for Censor {
 pub(crate) const HELP: &str = "\
 # censor: hide a field as ••• in list/show
 # table.style: ascii | square | rounded | double | heavy | dashed
+# table.index: number rows in list
 ";
 
 #[cfg(test)]
@@ -113,6 +116,10 @@ mod tests {
         let c: Config = toml::from_str("[table]\nstyle = \"rounded\"").unwrap();
         assert_eq!(c.table.style, BoxStyle::Rounded);
         assert!(c.censor.password);
+        assert!(!c.table.index);
+
+        let c: Config = toml::from_str("[table]\nindex = true").unwrap();
+        assert!(c.table.index);
 
         let back: Config = toml::from_str(&toml::to_string(&c).unwrap()).unwrap();
         assert_eq!(back, c);
