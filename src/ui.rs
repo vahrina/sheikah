@@ -76,6 +76,31 @@ pub(crate) fn prompt_opt(text: &str) -> Result<Option<String>> {
     Ok((!v.is_empty()).then_some(v))
 }
 
+/// one `> ` line per item until an empty line; rejects an empty list
+pub(crate) fn prompt_lines(text: &str) -> Result<Vec<String>> {
+    note(&format!("{text}, one per line, empty line to finish"));
+    let mut items = Vec::new();
+    loop {
+        eprint!("{} ", edim(">"));
+        io::stderr().flush()?;
+        let mut inp = String::new();
+        match io::stdin().read_line(&mut inp) {
+            Ok(0) => break,
+            Ok(_) => {}
+            Err(e) if e.kind() == ErrorKind::Interrupted => crate::signal::interrupted(),
+            Err(e) => return Err(e.into()),
+        }
+        match inp.trim() {
+            "" => break,
+            v => items.push(v.to_string()),
+        }
+    }
+    if items.is_empty() {
+        bail!("{text} must not be empty");
+    }
+    Ok(items)
+}
+
 pub(crate) fn confirm(text: &str) -> Result<bool> {
     let v = prompt(&format!("{text} {}", edim("[y/N]")))?;
     Ok(matches!(v.as_str(), "y" | "Y"))
@@ -282,11 +307,17 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
 /// every field, censored per config; `only` prints just those fields, uncensored
 pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
     let c = &cfg.censor;
+    let secret = e.secret();
+    let (secret_key, secret_val) = if e.is_recovery() {
+        ("recovery", None)
+    } else {
+        ("password", Some(secret.as_str()))
+    };
     let fields = [
         ("service", Some(e.service.as_str()), c.service),
         ("username", e.username.as_deref(), c.username),
         ("email", e.email.as_deref(), c.email),
-        ("password", Some(e.password.as_str()), c.password),
+        (secret_key, secret_val, c.password),
         ("url", e.url.as_deref(), c.url),
         ("category", e.category.as_deref(), c.category),
         ("notes", e.notes.as_deref(), c.notes),
@@ -294,18 +325,35 @@ pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
         ("modified", Some(e.modified.as_str()), false),
     ];
 
+    // `-p` asks for the secret, whichever form it has
     if let [one] = only {
-        if let Some((_, v, _)) = fields.iter().find(|f| f.0 == *one) {
+        if *one == "password" {
+            println!("{secret}");
+        } else if let Some((_, v, _)) = fields.iter().find(|f| f.0 == *one) {
             println!("{}", v.unwrap_or(""));
         }
         return;
     }
     for (k, v, hide) in fields {
-        let Some(v) = v else { continue };
-        if !only.is_empty() && !only.contains(&k) {
+        let wanted =
+            only.is_empty() || only.contains(&k) || (k == "recovery" && only.contains(&"password"));
+        if !wanted {
             continue;
         }
-        let v = match (hide && only.is_empty(), k) {
+        let hide = hide && only.is_empty();
+        if k == "recovery" {
+            if hide {
+                println!("{} {}", dim(&pad(k, 9)), dim(MASK));
+            } else {
+                for (n, code) in e.recovery.iter().enumerate() {
+                    let key = if n == 0 { k } else { "" };
+                    println!("{} {} {}", dim(&pad(key, 9)), dim("•"), bold(code));
+                }
+            }
+            continue;
+        }
+        let Some(v) = v else { continue };
+        let v = match (hide, k) {
             (true, _) => dim(MASK),
             (false, "password") => bold(v),
             _ => v.to_string(),

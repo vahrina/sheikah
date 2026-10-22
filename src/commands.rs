@@ -150,9 +150,14 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     let url = field(a.domain, "url")?;
     let category = field(a.category, "category")?;
     let notes = field(a.notes, "notes")?;
-    let password = ui::new_secret("password")?;
 
-    let mut e = Entry::new(service, password.to_string());
+    let mut e = if a.recovery {
+        let mut e = Entry::new(service, String::new());
+        e.recovery = ui::prompt_lines("recovery codes")?;
+        e
+    } else {
+        Entry::new(service, ui::new_secret("password")?.to_string())
+    };
     e.username = username;
     e.email = email;
     e.url = url;
@@ -204,7 +209,7 @@ fn cmd_show(name: Option<&str>, a: ShowArgs) -> Result<()> {
 fn cmd_copy(name: Option<&str>, r: &str) -> Result<()> {
     let s = unlock(name)?;
     let e = &s.entries[find_ref(&s.entries, r)?];
-    let via = clip::copy(&e.password)?;
+    let via = clip::copy(&e.secret())?;
     ui::say(&format!(
         "copied {} {}",
         e.service,
@@ -231,7 +236,11 @@ fn cmd_edit(name: Option<&str>, r: &str) -> Result<()> {
     edit_field("url", &mut e.url)?;
     edit_field("category", &mut e.category)?;
     edit_field("notes", &mut e.notes)?;
-    if ui::confirm("change password?")? {
+    if e.is_recovery() {
+        if ui::confirm("replace recovery codes?")? {
+            e.recovery = ui::prompt_lines("recovery codes")?;
+        }
+    } else if ui::confirm("change password?")? {
         e.password = ui::new_secret("password")?.to_string();
     }
     e.touch();

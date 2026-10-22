@@ -27,8 +27,15 @@ fn add_with_all_args() {
             assert_eq!(a.category.as_deref(), Some("misc"));
             assert_eq!(a.user.as_deref(), Some("v"));
             assert_eq!(a.notes.as_deref(), Some("funny note"));
+            assert!(!a.recovery);
         }
         _ => std::panic!("expected Add command"),
+    }
+    for args in [["sheikah", "add", "-r"], ["sheikah", "-a", "--recovery"]] {
+        match parse(&args).command {
+            Some(Commands::Add(a)) => assert!(a.recovery),
+            _ => std::panic!("expected Add command"),
+        }
     }
 }
 

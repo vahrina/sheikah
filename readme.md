@@ -131,6 +131,7 @@ Options:
 
 ```sh
 $ sheikah add [args]           # add an entry interactively or with arguments
+$ sheikah add -r               # store recovery codes instead of a password
 $ sheikah github               # show an entry
 $ sheikah -s github -p         # print only the password (for pipes)
 $ sheikah -c github            # copy its password (cleared after 45s)

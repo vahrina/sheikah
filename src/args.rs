@@ -152,4 +152,8 @@ pub(crate) struct AddArgs {
     /// optional notes
     #[arg(short, value_name = "STR")]
     pub(crate) notes: Option<String>,
+
+    /// store recovery codes instead of a password
+    #[arg(short = 'r', long)]
+    pub(crate) recovery: bool,
 }

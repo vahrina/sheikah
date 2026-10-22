@@ -9,6 +9,9 @@ pub(crate) struct Entry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) email: Option<String>,
     pub(crate) password: String,
+    /// recovery codes, stored instead of a password
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) recovery: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -33,6 +36,19 @@ impl Entry {
 
     pub(crate) fn touch(&mut self) {
         self.modified = now();
+    }
+
+    pub(crate) fn is_recovery(&self) -> bool {
+        !self.recovery.is_empty()
+    }
+
+    /// the password, or the recovery codes one per line
+    pub(crate) fn secret(&self) -> String {
+        if self.is_recovery() {
+            self.recovery.join("\n")
+        } else {
+            self.password.clone()
+        }
     }
 
     /// every searchable field except the password
@@ -81,6 +97,23 @@ pub(crate) fn rfc3339(secs: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recovery_codes_as_secret() {
+        let mut e = Entry::new("github".into(), String::new());
+        e.recovery = vec!["aaaa-bbbb".into(), "cccc-dddd".into()];
+        assert!(e.is_recovery());
+        assert_eq!(e.secret(), "aaaa-bbbb\ncccc-dddd");
+
+        let back: Entry = serde_json::from_str(&serde_json::to_string(&e).unwrap()).unwrap();
+        assert_eq!(back, e);
+
+        let old: Entry =
+            serde_json::from_str(r#"{"service":"x","password":"pw","created":"","modified":""}"#)
+                .unwrap();
+        assert!(!old.is_recovery());
+        assert_eq!(old.secret(), "pw");
+    }
 
     #[test]
     fn rfc3339_known_dates() {
