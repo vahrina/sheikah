@@ -7,6 +7,8 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+## 0.3.2 - 2026-10-28
+
 ### added
 
 - base16 themes: `0x96f` (default), `ascendancy`, `black-metal`, `custom`, or any scheme in `~/.sheikah/themes/`
