@@ -6,6 +6,49 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct Config {
     pub(crate) censor: Censor,
     pub(crate) table: Table,
+    pub(crate) theme: Theme,
+}
+
+/// `name` picks the base16 palette; every other key overrides that one role of it
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(default)]
+pub(crate) struct Theme {
+    pub(crate) name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) header: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) border: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) muted: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) secret: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) accent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) selection: Option<String>,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Theme {
+            name: crate::theme::DEFAULT.into(),
+            header: None,
+            border: None,
+            text: None,
+            muted: None,
+            key: None,
+            secret: None,
+            accent: None,
+            error: None,
+            selection: None,
+        }
+    }
 }
 
 /// fields hidden as `•••` in `list` and `show` (explicit `show -p` etc. always reveals)
@@ -99,9 +142,15 @@ impl Default for Censor {
 }
 
 pub(crate) const HELP: &str = "\
-# censor: hide a field as ••• in list/show
-# table.style: ascii | square | rounded | double | heavy | dashed
-# table.index: number rows in list
+# censor
+#   hide a field as ••• in list/show
+# table
+#   style: ascii | square | rounded | double | heavy | dashed
+#   index: number rows in list
+# theme
+#   name: 0x96f | ascendancy | black-metal | custom
+#   <role> overrides one role of the theme:
+#     header, border, text, muted, key, secret, accent, error, selection
 ";
 
 #[cfg(test)]
@@ -126,5 +175,12 @@ mod tests {
 
         let old: Config = toml::from_str("[find]\nfuzzy = true").unwrap();
         assert_eq!(old, Config::default());
+        assert_eq!(old.theme.name, "0x96f");
+
+        let c: Config = toml::from_str("[theme]\nborder = \"red\"").unwrap();
+        assert_eq!(c.theme.name, "0x96f");
+        assert_eq!(c.theme.border.as_deref(), Some("red"));
+        let out = toml::to_string(&Config::default()).unwrap();
+        assert!(out.contains("name = \"0x96f\"") && !out.contains("border"));
     }
 }

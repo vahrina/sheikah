@@ -7,6 +7,12 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+### added
+
+- base16 themes: `0x96f` (default), `ascendancy`, `black-metal`, `custom`, or any scheme in `~/.sheikah/themes/`
+- per-role color overrides in `[theme]`: names, `#rrggbb`, `baseXX` & `default`
+- fzf picker follows the theme
+
 ## [0.3.1] - 2026-10-22
 
 ### added

@@ -44,7 +44,7 @@ pub(crate) struct Slate {
 enum Stored {
     Full {
         #[serde(default)]
-        config: Config,
+        config: Box<Config>,
         entries: Vec<Entry>,
     },
     Legacy(Vec<Entry>),
@@ -252,7 +252,7 @@ impl Slate {
         let (plain, legacy) = open(&pass, &blob)?;
         let (config, entries) =
             match serde_json::from_slice(&plain).context("slate contents are malformed")? {
-                Stored::Full { config, entries } => (config, entries),
+                Stored::Full { config, entries } => (*config, entries),
                 Stored::Legacy(entries) => (Config::default(), entries),
             };
         let slate = Slate {

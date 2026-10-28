@@ -7,6 +7,7 @@ mod config;
 mod entry;
 mod signal;
 mod slate;
+mod theme;
 mod ui;
 
 #[cfg(test)]
@@ -18,7 +19,7 @@ fn main() {
     ui::init_color(cli.plain);
 
     if let Err(e) = commands::run(cli) {
-        eprintln!("{} {e:#}", ui::ebold("error:"));
+        eprintln!("{} {e:#}", ui::eerror("error:"));
         std::process::exit(1);
     }
 }

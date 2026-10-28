@@ -156,6 +156,43 @@ every action works as a word or a single-dash flag
 - with several slates & no `-S`, fzf asks which one
 - `export SHEIKAH_SLATE=work` in your shell rc makes `work` the default, `-S` still overrides it
 
+## themes
+
+colors come from [base16](https://tinted-theming.github.io/tinted-gallery/) schemes, set under `[theme]` in `sheikah -C`
+
+built in are `0x96f` (default), `ascendancy` & `black-metal`; `custom` keeps the plain bold/dim look. any other scheme works offline by saving any theme from [tinted-theming/schemes](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)/[tinted gallery](https://tinted-theming.github.io/tinted-gallery/)) as `~/.sheikah/themes/<name>.yaml` & set `name = "<name>"`. a file with a built-in name replaces it & `base16-` prefixes from the gallery are ignored
+
+every other key overrides one role & leaves the rest of the theme alone:
+
+```toml
+[theme]
+name = "nord"
+border = "red"            # names, bright-red, ...
+header = "#88c0d0"        # #rgb, #rrggbb
+secret = "hsl(0, 70%, 60%)"
+muted = "rgb(76, 86, 106)"
+key = "base0E"            # a slot of the current theme
+```
+
+following roles exist:
+- `header`
+- `border`
+- `text`
+- `muted`
+- `key`
+- `secret`
+- `accent`
+- `error`
+- `selection` (fzf's current line)
+
+> truecolor is used when `COLORTERM` is `truecolor`/`24bit`, otherwise the nearest of 256 colors
+
+corresponding to the roles, following values are accepted:
+- **naming convention**: black red green yellow blue magenta cyan white, plus `bright-*`
+- **base convention**: `baseXX` (see [here](https://github.com/chriskempson/base16/blob/main/styling.md))
+- **rgb**: `#rrggbb`
+- **default**: terminal's own foreground
+
 ## clipboard
 
 `-c` uses the first tool that works, & a detached `sh` empties the clipboard 45s later

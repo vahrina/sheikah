@@ -16,7 +16,7 @@ use crate::{
     config::{self, Config},
     entry::{self, Entry},
     slate::{self, Slate},
-    ui,
+    theme, ui,
 };
 
 pub(crate) fn run(cli: Cli) -> Result<()> {
@@ -91,7 +91,9 @@ fn tilde(p: &Path) -> String {
 fn unlock(name: Option<&str>) -> Result<Slate> {
     let path = slate::resolve(name)?;
     let pass = ui::secret("master password")?;
-    Slate::load(path, pass)
+    let s = Slate::load(path, pass)?;
+    ui::set_theme(&s.config.theme);
+    Ok(s)
 }
 
 fn cmd_init(name: Option<&str>) -> Result<()> {
@@ -349,6 +351,8 @@ fn cmd_config(name: Option<&str>) -> Result<()> {
         );
     }
     let new: Config = toml::from_str(&edited?).context("invalid config, nothing saved")?;
+    theme::resolve(&new.theme, ui::themes_dir().as_deref())
+        .context("invalid theme, nothing saved")?;
     if new == s.config {
         ui::say("config unchanged");
         return Ok(());
@@ -415,7 +419,11 @@ fn cmd_doctor(name: Option<&str>) -> Result<()> {
     let w0 = rows.iter().map(|r| r[0].chars().count()).max().unwrap_or(0);
     let w1 = rows.iter().map(|r| r[1].chars().count()).max().unwrap_or(0);
     for [a, b, c] in rows {
-        let status = if c == "ok" { ui::bold(&c) } else { ui::dim(&c) };
+        let status = if c == "ok" {
+            ui::accent(&c)
+        } else {
+            ui::dim(&c)
+        };
         println!("{a:<w0$}  {}  {status}", ui::dim(&format!("{b:<w1$}")));
     }
     Ok(())

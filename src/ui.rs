@@ -4,48 +4,103 @@ use std::{
     env::var_os,
     io::{self, ErrorKind, IsTerminal, Write},
     process::{Command, Stdio},
-    sync::atomic::{AtomicBool, Ordering::Relaxed},
+    sync::{
+        LazyLock, RwLock,
+        atomic::{AtomicBool, Ordering::Relaxed},
+    },
 };
 use zeroize::Zeroizing;
 
-use crate::{config::Config, entry::Entry};
+use crate::{
+    config::{self, Config},
+    entry::Entry,
+    slate,
+    theme::{self, Style, Styles},
+};
 
 static OUT: AtomicBool = AtomicBool::new(false);
 static ERR: AtomicBool = AtomicBool::new(false);
+static TRUECOLOR: AtomicBool = AtomicBool::new(false);
+static STYLES: LazyLock<RwLock<Styles>> = LazyLock::new(|| RwLock::new(Styles::default()));
 
-/// monochrome only: dim, bold, default. off for pipes, `NO_COLOR`, `TERM=dumb` and `-P`
+/// off for pipes, `NO_COLOR`, `TERM=dumb` and `-P`; 256 colors unless `COLORTERM` says truecolor
 pub(crate) fn init_color(plain: bool) {
     let ok = !plain
         && var_os("NO_COLOR").is_none_or(|v| v.is_empty())
         && var_os("TERM").is_none_or(|t| t != "dumb");
     OUT.store(ok && io::stdout().is_terminal(), Relaxed);
     ERR.store(ok && io::stderr().is_terminal(), Relaxed);
+    TRUECOLOR.store(
+        var_os("COLORTERM").is_some_and(|c| c == "truecolor" || c == "24bit"),
+        Relaxed,
+    );
 }
 
-fn paint(on: &AtomicBool, code: &str, s: &str) -> String {
-    if on.load(Relaxed) {
-        format!("\x1b[{code}m{s}\x1b[0m")
-    } else {
+/// swaps in the slate's theme; a broken one only warns, the default stays
+pub(crate) fn set_theme(t: &config::Theme) {
+    match theme::resolve(t, themes_dir().as_deref()) {
+        Ok(s) => *STYLES.write().unwrap_or_else(|e| e.into_inner()) = s,
+        Err(e) => note(&format!("theme ignored: {e:#}")),
+    }
+}
+
+pub(crate) fn themes_dir() -> Option<std::path::PathBuf> {
+    slate::dir().ok().map(|d| d.join("themes"))
+}
+
+fn paint(on: &AtomicBool, role: fn(&Styles) -> Style, s: &str) -> String {
+    if !on.load(Relaxed) {
+        return s.to_string();
+    }
+    let st = role(&STYLES.read().unwrap_or_else(|e| e.into_inner()));
+    let mut codes = Vec::new();
+    if st.bold {
+        codes.push("1".to_string());
+    }
+    if st.dim {
+        codes.push("2".to_string());
+    }
+    if let Some(c) = st.fg {
+        codes.push(c.sgr(TRUECOLOR.load(Relaxed)));
+    }
+    if codes.is_empty() {
         s.to_string()
+    } else {
+        format!("\x1b[{}m{s}\x1b[0m", codes.join(";"))
     }
 }
 
 pub(crate) fn dim(s: &str) -> String {
-    paint(&OUT, "2", s)
+    paint(&OUT, |t| t.muted, s)
 }
-pub(crate) fn bold(s: &str) -> String {
-    paint(&OUT, "1", s)
+pub(crate) fn accent(s: &str) -> String {
+    paint(&OUT, |t| t.accent, s)
+}
+fn header(s: &str) -> String {
+    paint(&OUT, |t| t.header, s)
+}
+fn border(s: &str) -> String {
+    paint(&OUT, |t| t.border, s)
+}
+fn text(s: &str) -> String {
+    paint(&OUT, |t| t.text, s)
+}
+fn key(s: &str) -> String {
+    paint(&OUT, |t| t.key, s)
+}
+fn secret_text(s: &str) -> String {
+    paint(&OUT, |t| t.secret, s)
 }
 pub(crate) fn edim(s: &str) -> String {
-    paint(&ERR, "2", s)
+    paint(&ERR, |t| t.muted, s)
 }
-pub(crate) fn ebold(s: &str) -> String {
-    paint(&ERR, "1", s)
+pub(crate) fn eerror(s: &str) -> String {
+    paint(&ERR, |t| t.error, s)
 }
 
 /// a status line on stdout, e.g. `~ added 'github'`
 pub(crate) fn say(msg: &str) {
-    println!("{} {msg}", dim("~"));
+    println!("{} {msg}", accent("~"));
 }
 
 /// a hint on stderr
@@ -165,9 +220,9 @@ pub(crate) fn pick(entries: &[Entry], idx: &[usize], query: &str) -> Result<usiz
 /// fuzzy-pick one of `(id, line)` with fzf; returns the chosen id
 pub(crate) fn choose(lines: &[(usize, String)], query: &str) -> Result<usize> {
     let color = if ERR.load(Relaxed) {
-        "--color=fg:7,bg:-1,hl:15,fg+:15,bg+:236,hl+:15,info:8,prompt:8,pointer:15,marker:8,query:15"
+        STYLES.read().unwrap_or_else(|e| e.into_inner()).fzf()
     } else {
-        "--color=bw"
+        "--color=bw".to_string()
     };
     let mut child = Command::new("fzf")
         .args([
@@ -183,7 +238,7 @@ pub(crate) fn choose(lines: &[(usize, String)], query: &str) -> Result<usize> {
             "--marker= ",
             "--select-1",
             "--exit-0",
-            color,
+            &color,
             &format!("--query={query}"),
         ])
         .stdin(Stdio::piped())
@@ -280,18 +335,18 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
 
     let boxed = boxed || cfg.table.boxed;
     let g = cfg.table.style.glyphs();
-    let cell = |s: &str, c: usize, header: bool| {
+    let cell = |s: &str, c: usize, head: bool| {
         let p = pad(s, w[c]);
-        match (header, s) {
-            (true, _) => bold(&p),
+        match (head, s) {
+            (true, _) => header(&p),
             (false, "-" | MASK) => dim(&p),
-            _ => p,
+            _ => text(&p),
         }
     };
-    let line = |r: &[String], header: bool| -> String {
-        let cells: Vec<String> = (0..cols).map(|c| cell(&r[c], c, header)).collect();
+    let line = |r: &[String], head: bool| -> String {
+        let cells: Vec<String> = (0..cols).map(|c| cell(&r[c], c, head)).collect();
         if boxed {
-            let bar = dim(&g.v.to_string());
+            let bar = border(&g.v.to_string());
             format!("{bar} {} {bar}", cells.join(&format!(" {bar} ")))
         } else {
             cells.join("  ").trim_end().to_string()
@@ -300,7 +355,7 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
     let rule = |row: usize| {
         let [l, j, r] = g.rows[row];
         let segs: Vec<String> = w.iter().map(|&n| g.h.to_string().repeat(n + 2)).collect();
-        dim(&format!("{l}{}{r}", segs.join(&j.to_string())))
+        border(&format!("{l}{}{r}", segs.join(&j.to_string())))
     };
 
     if boxed {
@@ -357,11 +412,11 @@ pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
         let hide = hide && only.is_empty();
         if k == "recovery" {
             if hide {
-                println!("{} {}", dim(&pad(k, 9)), dim(MASK));
+                println!("{} {}", key(&pad(k, 9)), dim(MASK));
             } else {
                 for (n, code) in e.recovery.iter().enumerate() {
-                    let key = if n == 0 { k } else { "" };
-                    println!("{} {} {}", dim(&pad(key, 9)), dim("•"), bold(code));
+                    let label = if n == 0 { k } else { "" };
+                    println!("{} {} {}", key(&pad(label, 9)), dim("•"), secret_text(code));
                 }
             }
             continue;
@@ -369,9 +424,9 @@ pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
         let Some(v) = v else { continue };
         let v = match (hide, k) {
             (true, _) => dim(MASK),
-            (false, "password") => bold(v),
-            _ => v.to_string(),
+            (false, "password") => secret_text(v),
+            _ => text(v),
         };
-        println!("{} {v}", dim(&pad(k, 9)));
+        println!("{} {v}", key(&pad(k, 9)));
     }
 }
