@@ -4,7 +4,7 @@ use std::{
     cmp::Reverse,
     env::var_os,
     fs,
-    io::Write,
+    io::{self, Write},
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
@@ -12,7 +12,7 @@ use std::{
 };
 
 use crate::{
-    args::{AddArgs, Cli, Commands, ShowArgs},
+    args::{AddArgs, Cli, Commands, CompletionShell, ShowArgs},
     clip,
     config::{self, Config, Sort},
     entry::{self, Entry},
@@ -27,7 +27,10 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
 
     let needs_fzf = !matches!(
         (&cli.command, &cli.reference),
-        (Some(Commands::Doctor | Commands::Help { .. }), _) | (None, None)
+        (
+            Some(Commands::Doctor | Commands::Help { .. } | Commands::Completions { .. }),
+            _
+        ) | (None, None)
     );
     if needs_fzf && !clip::on_path("fzf") {
         bail!(ui::FZF_MISSING);
@@ -47,6 +50,7 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::List { boxed }) => cmd_list(s, boxed),
         Some(Commands::Find { query }) => cmd_find(s, query.as_deref().unwrap_or("")),
         Some(Commands::Help { command }) => cmd_help(command.as_deref()),
+        Some(Commands::Completions { shell }) => cmd_completions(shell),
         None => match cli.reference {
             Some(r) => cmd_show(
                 s,
@@ -75,6 +79,18 @@ fn cmd_help(sub: Option<&str>) -> Result<()> {
     {
         Some(c) => c.print_help()?,
         None => bail!("unknown command: {sub}"),
+    }
+    Ok(())
+}
+
+/// `sheikah completions zsh > ~/.config/zsh/completions/_sheikah`
+fn cmd_completions(shell: CompletionShell) -> Result<()> {
+    let mut cmd = Cli::command();
+    let name = cmd.get_name().to_string();
+    match shell {
+        CompletionShell::Zsh => {
+            clap_complete::generate(clap_complete::Shell::Zsh, &mut cmd, name, &mut io::stdout());
+        }
     }
     Ok(())
 }

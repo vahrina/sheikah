@@ -7,7 +7,14 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
-## 0.3.3 - 2026-10-29
+## 0.3.4 - 2026-10-28
+
+### added
+
+- `completions zsh` prints a zsh completion script
+- add a description for args: `add`, `edit`, `delete` (quite obvious what they do, but it messes with newlines in `completions`) & fix one missing slash to print the `config` description as well
+
+## 0.3.3 - 2026-10-28
 
 ### added
 

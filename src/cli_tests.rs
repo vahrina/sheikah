@@ -102,6 +102,27 @@ fn positional_ref_and_config() {
 }
 
 #[test]
+fn zsh_completions() {
+    assert!(matches!(
+        parse(&["sheikah", "completions", "zsh"]).command,
+        Some(Commands::Completions { .. })
+    ));
+    assert!(Cli::try_parse_from(["sheikah", "completions", "fish"]).is_err());
+
+    let mut out = Vec::new();
+    clap_complete::generate(
+        clap_complete::Shell::Zsh,
+        &mut Cli::command(),
+        "sheikah",
+        &mut out,
+    );
+    let script = String::from_utf8(out).unwrap();
+    assert!(script.starts_with("#compdef sheikah"));
+    assert!(script.contains("passwd") && script.contains("backup"));
+    assert!(!script.contains("_default") && !script.contains("_files"));
+}
+
+#[test]
 fn password_prompt() {
     let conf = ConfigBuilder::new()
         .input_data("cat")

@@ -103,6 +103,7 @@ Commands:
   config, -C
   passwd      change the master password
   backup, -b  pick one of the last saves and restore it
+  completions print a shell completion script to stdout
   help        print this message or the help of the given subcommand(s)
 
 Arguments:
@@ -157,6 +158,61 @@ every action works as a word or a single-dash flag
 - a unique prefix is enough: `-S w` picks `work`
 - with several slates & no `-S`, fzf asks which one
 - `export SHEIKAH_SLATE=work` in your shell rc makes `work` the default, `-S` still overrides it
+
+## shell completion
+
+> [zsh](https://www.zsh.org/) only for now, will commence with [bash](https://www.gnu.org/software/bash/)/[fish](https://fishshell.com/) once this project gains momentum
+
+write the script into a completions dir:
+
+```sh
+mkdir -p ~/.config/zsh/completions
+sheikah completions zsh > ~/.config/zsh/completions/_sheikah
+```
+
+zsh only picks it up if that dir is in `fpath` before `compinit` runs, so add this to your `~/.zshrc`
+
+```sh
+fpath=(~/.config/zsh/completions $fpath)
+autoload -Uz compinit && compinit
+```
+
+> if your `~/.zshrc` already runs `compinit` (oh-my-zsh, zinit, ..), only add the `fpath=` line, above that call
+
+finally, reload your config:
+
+```sh
+source ~/.zshrc # or: exec zsh
+```
+
+rerun the `sheikah completions zsh > ...` line after updating sheikah & under an alias symlink, also add `compdef _sheikah <alias>` to `~/.zshrc`
+
+### troubleshooting [shell completions](#shell-completion)
+
+q: my shell doesn't display completions after following the [steps above](#shell-completion)
+a: check these in order:
+1. `which sheikah` points at the binary you expect, not an old copy under `~/.local/bin`
+2. `~/.config/zsh/completions/_sheikah` exists & starts with `#compdef sheikah`
+3. `echo $fpath` includes `~/.config/zsh/completions` near the beginning. under [omz](https://ohmyz.sh/)/[zinit](https://github.com/zdharma-continuum/zinit), put that `fpath=` line above the `compinit` call
+4. `autoload -Uz sheikah && which -a _sheikah` finds the function; if not, `exec zsh` (or `rm -f ~/.zcompdump* && exec zsh`, a mere `source ~/.zshrc` is not sufficient)
+
+q: i updated but completions are outdated
+a: regenerating with an old binary rewrites the old script - install first, then regenerate & wipe the dump:
+
+```sh
+# after installing, commence with these steps:
+
+# 1. regenerate completions
+sheikah completions zsh > ~/.config/zsh/completions/_sheikah
+# 2. make sure the script is current (must print 0)
+grep -c _default ~/.config/zsh/completions/_sheikah
+# 3. wipe the dump cache & force a full reload
+rm -f ~/.zcompdump* && exec zsh
+```
+
+a `0` means the current script; anything else means you still ran an old binary. if the count is already `0` & artifacts persist, e.g. files show alongisde commands, something in your zsh config forces file completion (`zstyle -L ':completion:*'`), not an issue sheikah produces
+
+if none of the above worked out for you, feel free to [open an issue](https://github.com/vahrina/sheikah/issues)! :)
 
 ## themes
 

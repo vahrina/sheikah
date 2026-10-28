@@ -1,4 +1,4 @@
-use clap::{ArgAction, Args, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum, ValueHint};
 
 #[derive(Parser)]
 #[command(
@@ -14,7 +14,7 @@ pub(crate) struct Cli {
     version: Option<bool>,
 
     /// entry to show: service name or search text
-    #[arg(value_name = "REF")]
+    #[arg(value_name = "REF", value_hint = ValueHint::Other)]
     pub(crate) reference: Option<String>,
 
     /// disable colors (respects NO_COLOR)
@@ -27,6 +27,7 @@ pub(crate) struct Cli {
         long = "slate",
         global = true,
         value_name = "NAME",
+        value_hint = ValueHint::Other,
         env = "SHEIKAH_SLATE"
     )]
     pub(crate) slate: Option<String>,
@@ -42,18 +43,27 @@ pub(crate) enum Commands {
     #[command(disable_help_flag = true)]
     Init,
 
-    /// check tools & permissions
+    /// check tools, permissions & health
     #[command(disable_help_flag = true)]
     Doctor,
 
+    /// add an entry interactively or via args
     #[command(short_flag = 'a', disable_help_flag = true)]
     Add(AddArgs),
 
+    /// edit an entry
     #[command(short_flag = 'e', disable_help_flag = true)]
-    Edit { reference: Option<String> },
+    Edit {
+        #[arg(value_hint = ValueHint::Other)]
+        reference: Option<String>,
+    },
 
+    /// delete an entry
     #[command(short_flag = 'd', disable_help_flag = true)]
-    Delete { reference: Option<String> },
+    Delete {
+        #[arg(value_hint = ValueHint::Other)]
+        reference: Option<String>,
+    },
 
     /// show an entry, or only the chosen fields
     #[command(short_flag = 's', disable_help_flag = true)]
@@ -61,8 +71,12 @@ pub(crate) enum Commands {
 
     /// copy an entry's password to the clipboard (cleared after 45s by default)
     #[command(short_flag = 'c', disable_help_flag = true)]
-    Copy { reference: Option<String> },
+    Copy {
+        #[arg(value_hint = ValueHint::Other)]
+        reference: Option<String>,
+    },
 
+    /// list all entries
     #[command(short_flag = 'l', disable_help_flag = true)]
     List {
         /// draw the table inside a box
@@ -74,13 +88,15 @@ pub(crate) enum Commands {
     #[command(short_flag = 'f', disable_help_flag = true)]
     Find {
         /// text to match against service, username & category
+        #[arg(value_hint = ValueHint::Other)]
         query: Option<String>,
     },
 
-    // open the config with your preferred $EDITOR
+    /// open the config with your preferred $EDITOR
     #[command(short_flag = 'C', disable_help_flag = true)]
     Config {
         /// slate name or path/to/slate
+        #[arg(value_hint = ValueHint::Other)]
         slate: Option<String>,
     },
 
@@ -92,16 +108,26 @@ pub(crate) enum Commands {
     #[command(short_flag = 'b', disable_help_flag = true)]
     Backup,
 
+    /// print a shell completion script to stdout
+    #[command(disable_help_flag = true)]
+    Completions { shell: CompletionShell },
+
     /// print this message or the help of the given subcommand(s)
     #[command(disable_help_flag = true)]
     Help {
-        #[arg(allow_hyphen_values = true)]
+        #[arg(allow_hyphen_values = true, value_hint = ValueHint::Other)]
         command: Option<String>,
     },
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CompletionShell {
+    Zsh,
+}
+
 #[derive(Args, Default)]
 pub(crate) struct ShowArgs {
+    #[arg(value_hint = ValueHint::Other)]
     pub(crate) reference: Option<String>,
 
     /// only the service
@@ -130,27 +156,27 @@ pub(crate) struct ShowArgs {
 #[derive(Args, Default)]
 pub(crate) struct AddArgs {
     /// label for site/app (netflix, proton, ..)
-    #[arg(short, value_name = "STR")]
+    #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) service: Option<String>,
 
     /// category (series, mail, ..)
-    #[arg(short, value_name = "STR")]
+    #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) category: Option<String>,
 
     /// domain/url
-    #[arg(short, value_name = "STR")]
+    #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) domain: Option<String>,
 
     /// email
-    #[arg(short, value_name = "STR")]
+    #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) email: Option<String>,
 
     /// username/login
-    #[arg(short, value_name = "STR")]
+    #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) user: Option<String>,
 
     /// optional notes
-    #[arg(short, value_name = "STR")]
+    #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) notes: Option<String>,
 
     /// store recovery codes instead of a password
