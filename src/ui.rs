@@ -284,12 +284,10 @@ fn pad(s: &str, w: usize) -> String {
     format!("{s}{}", " ".repeat(w.saturating_sub(s.chars().count())))
 }
 
-pub(crate) const MASK: &str = "•••";
-
-fn shown(v: Option<&str>, hide: bool) -> String {
+fn shown(v: Option<&str>, hide: bool, glyph: &str) -> String {
     match v {
         None => "-".into(),
-        Some(_) if hide => MASK.into(),
+        Some(_) if hide => glyph.into(),
         Some(v) => clean(v),
     }
 }
@@ -301,6 +299,7 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
         return;
     }
     let c = &cfg.censor;
+    let glyph = c.glyph.as_str();
     let index = cfg.table.index;
     let mut head: Vec<String> = ["service", "username", "email", "category"]
         .map(String::from)
@@ -314,10 +313,10 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
         .map(|(n, &i)| {
             let e = &entries[i];
             let mut r = vec![
-                shown(Some(&e.service), c.service),
-                shown(e.username.as_deref(), c.username),
-                shown(e.email.as_deref(), c.email),
-                shown(e.category.as_deref(), c.category),
+                shown(Some(&e.service), c.service, glyph),
+                shown(e.username.as_deref(), c.username, glyph),
+                shown(e.email.as_deref(), c.email, glyph),
+                shown(e.category.as_deref(), c.category, glyph),
             ];
             if index {
                 r.insert(0, (n + 1).to_string());
@@ -339,7 +338,7 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
         let p = pad(s, w[c]);
         match (head, s) {
             (true, _) => header(&p),
-            (false, "-" | MASK) => dim(&p),
+            (false, s) if s == "-" || s == glyph => dim(&p),
             _ => text(&p),
         }
     };
@@ -412,7 +411,7 @@ pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
         let hide = hide && only.is_empty();
         if k == "recovery" {
             if hide {
-                println!("{} {}", key(&pad(k, 9)), dim(MASK));
+                println!("{} {}", key(&pad(k, 9)), dim(&c.glyph));
             } else {
                 for (n, code) in e.recovery.iter().enumerate() {
                     let label = if n == 0 { k } else { "" };
@@ -423,7 +422,7 @@ pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
         }
         let Some(v) = v else { continue };
         let v = match (hide, k) {
-            (true, _) => dim(MASK),
+            (true, _) => dim(&c.glyph),
             (false, "password") => secret_text(v),
             _ => text(v),
         };

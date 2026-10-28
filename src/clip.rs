@@ -6,8 +6,6 @@ use std::{
     process::{Command, Stdio},
 };
 
-pub(crate) const CLEAR_SECS: u32 = 45;
-
 /// (binary, copy args, shell snippet that empties the clipboard)
 type Backend = (&'static str, &'static [&'static str], &'static str);
 
@@ -48,8 +46,9 @@ pub(crate) fn on_path(bin: &str) -> bool {
     which(bin).is_some()
 }
 
-/// copies with the first backend that works and schedules a clear; returns its name
-pub(crate) fn copy(text: &str) -> Result<&'static str> {
+/// copies with the first backend that works and schedules a clear unless `clear_secs` is 0;
+/// returns its name
+pub(crate) fn copy(text: &str, clear_secs: u32) -> Result<&'static str> {
     let mut tried = Vec::new();
     for (bin, args, clear) in backends() {
         let child = Command::new(bin)
@@ -70,7 +69,9 @@ pub(crate) fn copy(text: &str) -> Result<&'static str> {
             let _ = stdin.write_all(text.as_bytes());
         }
         if child.wait().is_ok_and(|s| s.success()) {
-            schedule_clear(clear);
+            if clear_secs > 0 {
+                schedule_clear(clear, clear_secs);
+            }
             return Ok(bin);
         }
         tried.push(bin);
@@ -89,10 +90,10 @@ pub(crate) fn copy(text: &str) -> Result<&'static str> {
     )
 }
 
-/// best-effort: a detached shell empties the clipboard after `CLEAR_SECS`
-fn schedule_clear(clear: &str) {
+/// best-effort: a detached shell empties the clipboard after `secs`
+fn schedule_clear(clear: &str, secs: u32) {
     let _ = Command::new("sh")
-        .args(["-c", &format!("sleep {CLEAR_SECS}; {clear}")])
+        .args(["-c", &format!("sleep {secs}; {clear}")])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())

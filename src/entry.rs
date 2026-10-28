@@ -20,6 +20,9 @@ pub(crate) struct Entry {
     pub(crate) category: Option<String>,
     pub(crate) created: String,
     pub(crate) modified: String,
+    /// last show/copy/find, only stamped while `table.sort = "used"`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) used: Option<String>,
 }
 
 impl Entry {

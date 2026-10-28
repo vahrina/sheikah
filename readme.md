@@ -97,7 +97,7 @@ Commands:
   edit, -e
   delete, -d
   show, -s    show an entry, or only the chosen fields
-  copy, -c    copy an entry's password to the clipboard (cleared after 45s)
+  copy, -c    copy an entry's password to the clipboard (cleared after 45s by default)
   list, -l
   find, -f    fuzzy pick an entry, optionally seeded with QUERY
   config, -C
@@ -147,6 +147,8 @@ every action works as a word or a single-dash flag
 
 `REF` resolves as: exact service name, else a unique substring match, else fuzzy finder (seeded with `REF`, so typos like `nflx` still find `netflix`)
 
+`list` & the fuzzy finder sort by `sort` under `[table]` in `sheikah -C`: `alphabetical` (default), `modified` or `used` (both newest first). `used` records every show/copy/find, which re-saves the slate; the previous file goes to `<slate>.used.bak` instead of the rotating backups
+
 ### multiple slates
 
 `-S` is a slate name under `~/.sheikah/` or a path, e.g. `sheikah -S work init`. `init` without `-S` creates `~/.sheikah/eye`
@@ -168,10 +170,9 @@ every other key overrides one role & leaves the rest of the theme alone:
 [theme]
 name = "nord"
 border = "red"            # names, bright-red, ...
-header = "#88c0d0"        # #rgb, #rrggbb
-secret = "hsl(0, 70%, 60%)"
-muted = "rgb(76, 86, 106)"
+header = "#88c0d0"        # #rrggbb
 key = "base0E"            # a slot of the current theme
+text = "default"          # the terminal's own foreground
 ```
 
 following roles exist:
@@ -184,7 +185,6 @@ following roles exist:
 - `accent`
 - `error`
 - `selection` (fzf's current line)
-
 > truecolor is used when `COLORTERM` is `truecolor`/`24bit`, otherwise the nearest of 256 colors
 
 corresponding to the roles, following values are accepted:
@@ -195,7 +195,7 @@ corresponding to the roles, following values are accepted:
 
 ## clipboard
 
-`-c` uses the first tool that works, & a detached `sh` empties the clipboard 45s later
+`-c` uses the first tool that works, & a detached `sh` empties the clipboard 45s later. change the delay with `clear` under `[clipboard]` in `sheikah -C`, `0` never clears
 
 | order | tool | when |
 |---|---|---|

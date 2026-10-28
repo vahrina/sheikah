@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, bail};
 use clap::CommandFactory;
 use std::{
+    cmp::Reverse,
     env::var_os,
     fs,
     io::Write,
@@ -13,7 +14,7 @@ use std::{
 use crate::{
     args::{AddArgs, Cli, Commands, ShowArgs},
     clip,
-    config::{self, Config},
+    config::{self, Config, Sort},
     entry::{self, Entry},
     slate::{self, Slate},
     theme, ui,
@@ -175,23 +176,40 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
 
 fn cmd_list(name: Option<&str>, boxed: bool) -> Result<()> {
     let s = unlock(name)?;
-    ui::table(&s.entries, &sorted(&s.entries), &s.config, boxed);
+    let idx = sorted(&s.entries, s.config.table.sort);
+    ui::table(&s.entries, &idx, &s.config, boxed);
     Ok(())
 }
 
+/// stamps `used` only while sorting by it, so reads stay read-only otherwise. best-effort
+fn mark_used(s: &mut Slate, i: usize) {
+    if s.config.table.sort != Sort::Used {
+        return;
+    }
+    s.entries[i].used = Some(entry::now());
+    if let Err(e) = s.save_used() {
+        ui::note(&format!("could not record last use: {e:#}"));
+    }
+}
+
 fn cmd_find(name: Option<&str>, q: &str) -> Result<()> {
-    let s = unlock(name)?;
+    let mut s = unlock(name)?;
     if s.entries.is_empty() {
         bail!("slate is empty (add one with `sheikah add`)");
     }
-    let i = ui::pick(&s.entries, &sorted(&s.entries), q)?;
+    let i = ui::pick(&s.entries, &sorted(&s.entries, s.config.table.sort), q)?;
     ui::detail(&s.entries[i], &s.config, &[]);
+    mark_used(&mut s, i);
     Ok(())
 }
 
 fn cmd_show(name: Option<&str>, a: ShowArgs) -> Result<()> {
-    let s = unlock(name)?;
-    let i = find_ref(&s.entries, a.reference.as_deref().unwrap_or(""))?;
+    let mut s = unlock(name)?;
+    let i = find_ref(
+        &s.entries,
+        a.reference.as_deref().unwrap_or(""),
+        s.config.table.sort,
+    )?;
     let only: Vec<&str> = [
         (a.service, "service"),
         (a.username, "username"),
@@ -205,24 +223,28 @@ fn cmd_show(name: Option<&str>, a: ShowArgs) -> Result<()> {
     .filter_map(|(on, k)| on.then_some(k))
     .collect();
     ui::detail(&s.entries[i], &s.config, &only);
+    mark_used(&mut s, i);
     Ok(())
 }
 
 fn cmd_copy(name: Option<&str>, r: &str) -> Result<()> {
-    let s = unlock(name)?;
-    let e = &s.entries[find_ref(&s.entries, r)?];
-    let via = clip::copy(&e.secret())?;
-    ui::say(&format!(
-        "copied {} {}",
-        e.service,
-        ui::dim(&format!("via {via}, clears in {}s", clip::CLEAR_SECS))
-    ));
+    let mut s = unlock(name)?;
+    let i = find_ref(&s.entries, r, s.config.table.sort)?;
+    let e = &s.entries[i];
+    let secs = s.config.clipboard.clear;
+    let via = clip::copy(&e.secret(), secs)?;
+    let when = match secs {
+        0 => format!("via {via}, never cleared"),
+        n => format!("via {via}, clears in {n}s"),
+    };
+    ui::say(&format!("copied {} {}", e.service, ui::dim(&when)));
+    mark_used(&mut s, i);
     Ok(())
 }
 
 fn cmd_edit(name: Option<&str>, r: &str) -> Result<()> {
     let mut s = unlock(name)?;
-    let i = find_ref(&s.entries, r)?;
+    let i = find_ref(&s.entries, r, s.config.table.sort)?;
     let e = &mut s.entries[i];
     ui::note("'enter' to keep | '-' to clear");
 
@@ -265,7 +287,7 @@ fn edit_field(label: &str, cur: &mut Option<String>) -> Result<()> {
 
 fn cmd_delete(name: Option<&str>, r: &str) -> Result<()> {
     let mut s = unlock(name)?;
-    let i = find_ref(&s.entries, r)?;
+    let i = find_ref(&s.entries, r, s.config.table.sort)?;
     if !ui::confirm(&format!("delete {}?", s.entries[i].service))? {
         ui::say(&format!("kept {}", s.entries[i].service));
         return Ok(());
@@ -429,12 +451,19 @@ fn cmd_doctor(name: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// indices of all entries, ordered by service then username (case-insensitive)
-pub(crate) fn sorted(entries: &[Entry]) -> Vec<usize> {
+/// indices of all entries in `by` order; ties (and never used entries) fall back to
+/// service then username (case-insensitive)
+pub(crate) fn sorted(entries: &[Entry], by: Sort) -> Vec<usize> {
     let mut idx: Vec<usize> = (0..entries.len()).collect();
     idx.sort_by_key(|&i| {
         let e = &entries[i];
+        let stamp = match by {
+            Sort::Alphabetical => None,
+            Sort::Modified => Some(e.modified.as_str()),
+            Sort::Used => e.used.as_deref(),
+        };
         (
+            Reverse(stamp),
             e.service.to_lowercase(),
             e.username.as_deref().unwrap_or("").to_lowercase(),
         )
@@ -443,9 +472,9 @@ pub(crate) fn sorted(entries: &[Entry]) -> Vec<usize> {
 }
 
 /// case-insensitive substring match over every non-secret field
-pub(crate) fn filter(entries: &[Entry], query: &str) -> Vec<usize> {
+pub(crate) fn filter(entries: &[Entry], query: &str, by: Sort) -> Vec<usize> {
     let q = query.to_lowercase();
-    sorted(entries)
+    sorted(entries, by)
         .into_iter()
         .filter(|&i| {
             entries[i]
@@ -457,27 +486,27 @@ pub(crate) fn filter(entries: &[Entry], query: &str) -> Vec<usize> {
 }
 
 /// exact service name, then a unique substring match, otherwise fzf decides
-pub(crate) fn find_ref(entries: &[Entry], r: &str) -> Result<usize> {
+pub(crate) fn find_ref(entries: &[Entry], r: &str, by: Sort) -> Result<usize> {
     if entries.is_empty() {
         bail!("slate is empty (add one with `sheikah add`)");
     }
     if r.is_empty() {
-        return ui::pick(entries, &sorted(entries), "");
+        return ui::pick(entries, &sorted(entries, by), "");
     }
 
-    let exact: Vec<usize> = sorted(entries)
+    let exact: Vec<usize> = sorted(entries, by)
         .into_iter()
         .filter(|&i| entries[i].service.eq_ignore_ascii_case(r))
         .collect();
     let candidates = if exact.is_empty() {
-        filter(entries, r)
+        filter(entries, r, by)
     } else {
         exact
     };
 
     match candidates.as_slice() {
         [one] => Ok(*one),
-        [] => ui::pick(entries, &sorted(entries), r),
+        [] => ui::pick(entries, &sorted(entries, by), r),
         many => ui::pick(entries, many, ""),
     }
 }
@@ -502,25 +531,43 @@ mod tests {
         ]
     }
 
+    const ABC: Sort = Sort::Alphabetical;
+
     #[test]
     fn sorts_by_service_then_user() {
-        assert_eq!(sorted(&sample()), vec![3, 1, 2, 0]);
+        assert_eq!(sorted(&sample(), ABC), vec![3, 1, 2, 0]);
+    }
+
+    #[test]
+    fn sorts_newest_first_then_alphabetical() {
+        let mut e = sample();
+        for (x, ts) in e
+            .iter_mut()
+            .zip(["2026-01-01", "2026-03-01", "2026-02-01", "2026-03-01"])
+        {
+            x.modified = ts.into();
+        }
+        assert_eq!(sorted(&e, Sort::Modified), vec![3, 1, 2, 0]);
+
+        e[2].used = Some("2026-05-01".into());
+        e[0].used = Some("2026-04-01".into());
+        assert_eq!(sorted(&e, Sort::Used), vec![2, 0, 3, 1]);
     }
 
     #[test]
     fn filter_matches_any_field_case_insensitive() {
         let e = sample();
-        assert_eq!(filter(&e, "MAIL"), vec![0]);
-        assert_eq!(filter(&e, "dev"), vec![3, 1]);
-        assert_eq!(filter(&e, "pw"), Vec::<usize>::new());
-        assert_eq!(filter(&e, "").len(), 4);
+        assert_eq!(filter(&e, "MAIL", ABC), vec![0]);
+        assert_eq!(filter(&e, "dev", ABC), vec![3, 1]);
+        assert_eq!(filter(&e, "pw", ABC), Vec::<usize>::new());
+        assert_eq!(filter(&e, "", ABC).len(), 4);
     }
 
     #[test]
     fn find_ref_prefers_unique_matches() {
         let e = sample();
-        assert_eq!(find_ref(&e, "proton").unwrap(), 0);
-        assert_eq!(find_ref(&e, "flix").unwrap(), 2);
-        assert!(find_ref(&[], "x").is_err());
+        assert_eq!(find_ref(&e, "proton", ABC).unwrap(), 0);
+        assert_eq!(find_ref(&e, "flix", ABC).unwrap(), 2);
+        assert!(find_ref(&[], "x", ABC).is_err());
     }
 }

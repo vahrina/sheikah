@@ -272,6 +272,20 @@ impl Slate {
     /// writes in place (after copying the old file to a backup slot) instead of
     /// tmp + rename, since rename cannot replace files in a `chattr +a` dir
     pub(crate) fn save(&self) -> Result<()> {
+        self.write(&next_backup(&self.path))
+    }
+
+    /// like `save`, but the old file goes to `<slate>.used.bak` instead of a rotating slot,
+    /// so read-only stamps (`used`) never push real backups out
+    pub(crate) fn save_used(&self) -> Result<()> {
+        self.write(
+            &self
+                .path
+                .with_file_name(format!("{}.used.bak", file_name(&self.path))),
+        )
+    }
+
+    fn write(&self, backup: &Path) -> Result<()> {
         let plain = Zeroizing::new(serde_json::to_vec(&serde_json::json!({
             "config": self.config,
             "entries": self.entries,
@@ -279,7 +293,7 @@ impl Slate {
         let blob = seal(&self.pass, &plain)?;
 
         let _guard = crate::signal::Critical::enter();
-        write_file(&next_backup(&self.path), &fs::read(&self.path)?)?;
+        write_file(backup, &fs::read(&self.path)?)?;
         write_file(&self.path, &blob)
     }
 

@@ -7,6 +7,18 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+## 0.3.3 - 2026-10-29
+
+### added
+
+- `censor.glyph` sets the placeholder for hidden fields
+- `table.sort` applies different sorting filters: alphabetical, last modified & last used
+- `clipboard.clear` allows to change the amount of time (in seconds) it takes for a copied secret to be wiped. default is 45; 0 disables this behaviour
+
+### changed
+
+- hidden fields show `***` instead of `•••` by default
+
 ## 0.3.2 - 2026-10-28
 
 ### added
