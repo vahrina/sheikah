@@ -69,7 +69,7 @@ pub(crate) enum Commands {
     #[command(short_flag = 's', disable_help_flag = true)]
     Show(ShowArgs),
 
-    /// copy an entry's password to the clipboard (cleared after 45s by default)
+    /// copy an entry's password to the clipboard
     #[command(short_flag = 'c', disable_help_flag = true)]
     Copy {
         #[arg(value_hint = ValueHint::Other)]

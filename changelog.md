@@ -7,14 +7,14 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
-## 0.3.4 - 2026-10-28
+## [0.3.4] - 2026-10-28
 
 ### added
 
 - `completions zsh` prints a zsh completion script
 - add a description for args: `add`, `edit`, `delete` (quite obvious what they do, but it messes with newlines in `completions`) & fix one missing slash to print the `config` description as well
 
-## 0.3.3 - 2026-10-28
+## [0.3.3] - 2026-10-28
 
 ### added
 
@@ -26,7 +26,7 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 - hidden fields show `***` instead of `•••` by default
 
-## 0.3.2 - 2026-10-28
+## [0.3.2] - 2026-10-28
 
 ### added
 
@@ -74,7 +74,10 @@ first tagged release & retroactively documented from git history
 
 - wrong directory permissions (octal instead of hex)
 
-[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.1...head
+[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.4...head
+[0.3.4]: https://github.com/vahrina/sheikah/compare/v0.3.3...v0.3.4
+[0.3.3]: https://github.com/vahrina/sheikah/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/vahrina/sheikah/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/vahrina/sheikah/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/vahrina/sheikah/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vahrina/sheikah/releases/tag/v0.2.0

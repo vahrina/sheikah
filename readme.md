@@ -6,15 +6,13 @@ a quiet cli password manager with one encrypted slate, no daemon/tui (yet)
 
 ### installer
 
-downloads the right release archive for your machine into `~/.local/bin`
+downloads the right release archive for your machine into `~/.local/bin` - rerun to update
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/vahrina/sheikah/main/install.sh -o install.sh \
   && less $_
 bash install.sh
 ```
-
-> run again to update
 
 ### manual
 
@@ -31,21 +29,22 @@ needs a rust toolchain & preferably [`just`](https://github.com/casey/just#insta
 
 ```sh
 git clone https://github.com/vahrina/sheikah && cd sheikah
-just install   # or: cargo install --path .
+just install # or: cargo install --path . --locked
 ```
 
 if you'd like to give it a new name, symlink it afterwards
 
 ```sh
-ln -sf "${CARGO_HOME:-$HOME/.cargo}/bin/sheikah" "${CARGO_HOME:-$HOME/.cargo}/bin/<your desired alias>"
+ln -sf "${CARGO_HOME:-$HOME/.cargo}/bin/sheikah" \
+  "${CARGO_HOME:-$HOME/.cargo}/bin/<your desired alias>"
 ```
 
-to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag` (pushes `vX.Y.Z` & triggers the release workflow)
+to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag`
 
 ## dependencies
 
 - [`fzf`](https://github.com/junegunn/fzf) (required)
-- a clipboard tool, [see below](#clipboard) (optional)
+- a clipboard tool, (optional, see [clipboard](#clipboard))
 - [`just`](https://github.com/casey/just#installation) (optional, from-source only)
 
 ## get started
@@ -55,7 +54,7 @@ to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag` (push
 a slate is the zelda-derived equivalent of a file where your secrets will be stored in - likewise the name "sheikah"
 
 ```sh
-sheikah init
+$ sheikah init
 ```
 
 > optionally, you can specify a new name with the `-S` flag
@@ -64,9 +63,10 @@ sheikah init
 
 adding, editing, deleting & viewing follow a similar pattern
 
-```sh
-sheikah add # or via arguments, see `sheikah help add`
-sheikah edit
+```console
+$ sheikah add # or via arguments, see `sheikah help add`
+$ sheikah edit cloudflare
+$ sheikah show gentoo
 # yadeyadeyade
 ```
 
@@ -74,37 +74,37 @@ see [usage](#usage) for more in-depth examples
 
 ### passwords, security & misc
 
-passwords will **always** have an interactive prompt to ensure security via [`rpassword`](https://crates.io/crates/rpassword). read more about the security aspect under [crypto](#crypto)
+passwords will **always** have an interactive prompt to ensure security via [`rpassword`](https://crates.io/crates/rpassword) - read more about the security aspect under [crypto](#crypto)
 
-also make sure all [requirements](#dependencies) are satisfied after initializing a new slate
+also make sure all [requirements](#dependencies) are satisfied after initializing a new slate:
 
-```sh
+```md
 sheikah doctor
 ```
 
 ## usage
 
-```sh
+```console
 $ sheikah
 a quiet cli password manager for keyboard warriors
 
 Usage: sheikah [OPTIONS] [REF] [COMMAND]
 
 Commands:
-  init        create a new slate where your secrets live
-  doctor      check tools & permissions
-  add, -a     basic operations
-  edit, -e
-  delete, -d
-  show, -s    show an entry, or only the chosen fields
-  copy, -c    copy an entry's password to the clipboard (cleared after 45s by default)
-  list, -l
-  find, -f    fuzzy pick an entry, optionally seeded with QUERY
-  config, -C
-  passwd      change the master password
-  backup, -b  pick one of the last saves and restore it
-  completions print a shell completion script to stdout
-  help        print this message or the help of the given subcommand(s)
+  init         create a new slate where your secrets live
+  doctor       check tools, permissions & health
+  add, -a      add an entry interactively or via args
+  edit, -e     edit an entry
+  delete, -d   delete an entry
+  show, -s     show an entry, or only the chosen fields
+  copy, -c     copy an entry's password to the clipboard
+  list, -l     list all entries
+  find, -f     fuzzy pick an entry, optionally seeded with QUERY
+  config, -C   open the config with your preferred $EDITOR
+  passwd       change the master password
+  backup, -b   pick one of the last saves & restore it
+  completions  print a shell completion script to stdout
+  help         print this message or the help of the given subcommand(s)
 
 Arguments:
   [REF]  entry to show: service name or search text
@@ -115,38 +115,44 @@ Options:
   -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
 ```
 
-note that many command includes subcommands, make sure to skim through each one you're interested in (`help show` & `help -s` both work):
+`REF` resolves as: exact service name, else a unique substring match, else fuzzy finder (typos like `nflx` still find `netflix`)
 
-```sh
-$ sheikah help passwd
-change the master password
+note that many commands include subcommands, make sure to skim through each one you're interested in:
 
-Usage: sheikah passwd [OPTIONS]
+```console
+$ sheikah help add
+add an entry interactively or via args
+
+Usage: sheikah {add|-a} [OPTIONS]
 
 Options:
+  -s <STR>            label for site/app (netflix, proton, ..)
+  -c <STR>            category (series, mail, ..)
   -P, --plain         disable colors (respects NO_COLOR)
+  -d <STR>            domain/url
   -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
+  -e <STR>            email
+  -u <STR>            username/login
+  -n <STR>            optional notes
+  -r, --recovery      store recovery codes instead of a password
 ```
 
 ### example usages
 
-```sh
-$ sheikah add [args]           # add an entry interactively or with arguments
-$ sheikah add -r               # store recovery codes instead of a password
-$ sheikah github               # show an entry
-$ sheikah -s github -p         # print only the password (for pipes)
-$ sheikah -c github            # copy its password (cleared after 45s)
-$ sheikah -l                   # list entries (no secrets)
-$ sheikah -lb                  # ... inside a box
-$ sheikah find [query]         # fuzzy pick an entry, optionally seeded with a query
-$ sheikah -b                   # restore one of the last 5 saves
-$ sheikah doctor               # health check
-$ sheikah -C                   # adjust your preferred settings
-```
-
 every action works as a word or a single-dash flag
 
-`REF` resolves as: exact service name, else a unique substring match, else fuzzy finder (seeded with `REF`, so typos like `nflx` still find `netflix`)
+```console
+$ sheikah add -s 'csfloat' -c 'trading'
+  # adds a new service with a categroy
+$ sheikah github
+  # will look for an entry 'github', picker will pop up if there are multiple
+$ sheikah -s github -p | ssh raspberrypi
+  # print only the password of 'github', useful for pipes
+$ sheikah -c github
+  # copy the password into your clipboard, clears after a period of time
+$ sheikah -lb
+  # list all entries inside a box
+```
 
 `list` & the fuzzy finder sort by `sort` under `[table]` in `sheikah -C`: `alphabetical` (default), `modified` or `used` (both newest first). `used` records every show/copy/find, which re-saves the slate; the previous file goes to `<slate>.used.bak` instead of the rotating backups
 
@@ -177,40 +183,44 @@ fpath=(~/.config/zsh/completions $fpath)
 autoload -Uz compinit && compinit
 ```
 
-> if your `~/.zshrc` already runs `compinit` (oh-my-zsh, zinit, ..), only add the `fpath=` line, above that call
+> if your `~/.zshrc` already runs `compinit` (oh-my-zsh, zinit, ..), only add the `fpath=` line above
 
-finally, reload your config:
+finally, reload your shell:
 
 ```sh
-source ~/.zshrc # or: exec zsh
+exec zsh
 ```
 
-rerun the `sheikah completions zsh > ...` line after updating sheikah & under an alias symlink, also add `compdef _sheikah <alias>` to `~/.zshrc`
+> note that a mere `source ~/.zshrc` is not sufficient enough
 
-### troubleshooting [shell completions](#shell-completion)
+rerun `sheikah completions zsh > ...` **after** updating sheikah & under an alias symlink, also add `compdef _sheikah <alias>` to `~/.zshrc`
 
-q: my shell doesn't display completions after following the [steps above](#shell-completion)
-a: check these in order:
+### troubleshooting [shell completion](#shell-completion)
+
+**q**: my shell doesn't display completions after following the [steps above](#shell-completion)
+
+**a**: check these in order:
 1. `which sheikah` points at the binary you expect, not an old copy under `~/.local/bin`
 2. `~/.config/zsh/completions/_sheikah` exists & starts with `#compdef sheikah`
-3. `echo $fpath` includes `~/.config/zsh/completions` near the beginning. under [omz](https://ohmyz.sh/)/[zinit](https://github.com/zdharma-continuum/zinit), put that `fpath=` line above the `compinit` call
-4. `autoload -Uz sheikah && which -a _sheikah` finds the function; if not, `exec zsh` (or `rm -f ~/.zcompdump* && exec zsh`, a mere `source ~/.zshrc` is not sufficient)
+3. `echo $fpath` includes `~/.config/zsh/completions` near the beginning. when using [omz](https://ohmyz.sh/)/[zinit](https://github.com/zdharma-continuum/zinit), put that `fpath=` line above the `compinit` call
+4. `autoload -Uz sheikah && which -a _sheikah` finds the function; if not, `exec zsh` (or `rm -f ~/.zcompdump* && exec zsh`)
 
-q: i updated but completions are outdated
-a: regenerating with an old binary rewrites the old script - install first, then regenerate & wipe the dump:
+**q**: i updated but completions are outdated
+
+**a**: regenerating with an old binary rewrites the old script - install/update first, then proceed:
 
 ```sh
-# after installing, commence with these steps:
-
 # 1. regenerate completions
 sheikah completions zsh > ~/.config/zsh/completions/_sheikah
+
 # 2. make sure the script is current (must print 0)
 grep -c _default ~/.config/zsh/completions/_sheikah
+
 # 3. wipe the dump cache & force a full reload
 rm -f ~/.zcompdump* && exec zsh
 ```
 
-a `0` means the current script; anything else means you still ran an old binary. if the count is already `0` & artifacts persist, e.g. files show alongisde commands, something in your zsh config forces file completion (`zstyle -L ':completion:*'`), not an issue sheikah produces
+a `0` means the current script; anything else means you still ran an old binary. if the count is already `0` & artifacts persist, e.g. files show alongside commands, something in your zsh config forces file completion (`zstyle -L ':completion:*'`), not an issue sheikah produces
 
 if none of the above worked out for you, feel free to [open an issue](https://github.com/vahrina/sheikah/issues)! :)
 
@@ -218,20 +228,27 @@ if none of the above worked out for you, feel free to [open an issue](https://gi
 
 colors come from [base16](https://tinted-theming.github.io/tinted-gallery/) schemes, set under `[theme]` in `sheikah -C`
 
-built in are `0x96f` (default), `ascendancy` & `black-metal`; `custom` keeps the plain bold/dim look. any other scheme works offline by saving any theme from [tinted-theming/schemes](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)/[tinted gallery](https://tinted-theming.github.io/tinted-gallery/)) as `~/.sheikah/themes/<name>.yaml` & set `name = "<name>"`. a file with a built-in name replaces it & `base16-` prefixes from the gallery are ignored
+built in are:
+- `0x96f`,
+- `ascendancy`
+- `black-metal`
+- `custom` keeps the plain bold/dim look
 
-every other key overrides one role & leaves the rest of the theme alone:
+any other scheme can be imported from the [tinted gallery](https://tinted-theming.github.io/tinted-gallery/), find the yaml files here: [tinted-theming/schemes](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)) & saved as `~/.sheikah/themes/<name>.yaml`. don't forget to also set `name = "<name>"`! a file with a built-in name replaces it & `base16-` prefixes from the gallery are ignored
+
+### customizing the appearance
+
+every other key overrides one role & leaves the rest of the theme alone, e.g. setting your theme to `nord` with your own border color:
 
 ```toml
 [theme]
 name = "nord"
-border = "red"            # names, bright-red, ...
-header = "#88c0d0"        # #rrggbb
-key = "base0E"            # a slot of the current theme
-text = "default"          # the terminal's own foreground
+border = "red"
 ```
 
-following roles exist:
+### accepted roles & values
+
+**roles**:
 - `header`
 - `border`
 - `text`
@@ -241,17 +258,18 @@ following roles exist:
 - `accent`
 - `error`
 - `selection` (fzf's current line)
+
 > truecolor is used when `COLORTERM` is `truecolor`/`24bit`, otherwise the nearest of 256 colors
 
-corresponding to the roles, following values are accepted:
-- **naming convention**: black red green yellow blue magenta cyan white, plus `bright-*`
+**values**:
+- **name convetion**: black red green yellow blue magenta cyan white (plus `bright-*`)
 - **base convention**: `baseXX` (see [here](https://github.com/chriskempson/base16/blob/main/styling.md))
 - **rgb**: `#rrggbb`
 - **default**: terminal's own foreground
 
 ## clipboard
 
-`-c` uses the first tool that works, & a detached `sh` empties the clipboard 45s later. change the delay with `clear` under `[clipboard]` in `sheikah -C`, `0` never clears
+`-c` uses the first tool that works, & a detached `sh` empties the clipboard 45s later
 
 | order | tool | when |
 |---|---|---|
@@ -260,6 +278,8 @@ corresponding to the roles, following values are accepted:
 | 3 | `xsel --clipboard` | x11 |
 | 4 | `clip.exe` | wsl |
 | 5 | `pbcopy` | macos |
+
+change the delay with `clear` under `[clipboard]` in `sheikah -C`, whereas `0` disables this behaviour
 
 ## storage
 

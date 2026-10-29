@@ -11,11 +11,7 @@ check:
   cargo clippy -- -D warnings
   cargo test
 
-# local release binary
-release: check
-  cargo build --release
-
-# tag Cargo.toml version & push → GitHub Release + install.sh assets
+# tag `Cargo.toml` version & push
 tag:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -29,4 +25,4 @@ tag:
   echo "pushed $tag — watch Actions → Release"
 
 install:
-  cargo install --path .
+  cargo install --path . --locked
