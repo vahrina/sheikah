@@ -1,6 +1,8 @@
-a quiet cli password manager with one encrypted slate, no daemon/tui (yet)
+<p align="center">
+  a quiet cli password manager with one encrypted file, keeping your credentials safe & locally available - portable & accissible on the fly!
+</p>
 
-> disclosure: as i've become more busy & lost motivation with this project, i decided to hand it over to the clanker - don't expect quality non-ai content
+> disclosure: as i've become more busy & lost motivation with this project, i decided to hand it over to the clanker - don't expect quality non-ai content since [`3425c13`](https://github.com/vahrina/sheikah/commit/3425c1352afd90fcb69f5ef7d000eaab1c5e1835)
 
 ## installation
 
@@ -20,7 +22,7 @@ grab `sheikah-vX.Y.Z-<arch>.tar.gz` from [releases](https://github.com/vahrina/s
 
 ```sh
 tar -xzf sheikah-v0.2.0-x86_64.tar.gz
-install -m 755 sheikah ~/.local/bin/sheikah
+install -m 755 sheikah ~/.local/bin/
 ```
 
 ### source
@@ -98,6 +100,7 @@ Commands:
   delete, -d   delete an entry
   show, -s     show an entry, or only the chosen fields
   copy, -c     copy an entry's password to the clipboard
+  ssh          run ssh, answering its passphrase prompt with the entry's password
   list, -l     list all entries
   find, -f     fuzzy pick an entry, optionally seeded with QUERY
   config, -C   open the config with your preferred $EDITOR
@@ -146,13 +149,19 @@ $ sheikah add -s 'csfloat' -c 'trading'
   # adds a new service with a categroy
 $ sheikah github
   # will look for an entry 'github', picker will pop up if there are multiple
-$ sheikah -s github -p | ssh raspberrypi
+$ sheikah -s github -p | docker login -u v --password-stdin
   # print only the password of 'github', useful for pipes
+$ sheikah ssh pi -- rpi
+  # regular ssh workflow, entry after `--` supplies the passphrase
+$ sheikah ssh bandit0@bandit@bandit.labs.overthewire.org -p 2220 -- bandit
+  # optionally, add your ssh args, e.g. port
 $ sheikah -c github
   # copy the password into your clipboard, clears after a period of time
 $ sheikah -lb
   # list all entries inside a box
 ```
+
+`ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS` pointing back at sheikah (needs OpenSSH 8.4+). the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts and host key questions go to your terminal
 
 `list` & the fuzzy finder sort by `sort` under `[table]` in `sheikah -C`: `alphabetical` (default), `modified` or `used` (both newest first). `used` records every show/copy/find, which re-saves the slate; the previous file goes to `<slate>.used.bak` instead of the rotating backups
 

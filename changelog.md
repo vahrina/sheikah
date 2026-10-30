@@ -7,6 +7,12 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+## [0.3.5] - 2026-10-30
+
+### added
+
+- `sheikah ssh [SSH_ARGS]... -- <REF>`: unlock an entry & run ssh with its password via `SSH_ASKPASS` (OpenSSH 8.4+). piping `sheikah -s rpi -p | ssh pi` cannot work; ssh reads passphrases from `/dev/tty`, not stdin
+
 ## [0.3.4] - 2026-10-28
 
 ### added
@@ -74,7 +80,8 @@ first tagged release & retroactively documented from git history
 
 - wrong directory permissions (octal instead of hex)
 
-[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.4...head
+[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.5...head
+[0.3.5]: https://github.com/vahrina/sheikah/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/vahrina/sheikah/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/vahrina/sheikah/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/vahrina/sheikah/compare/v0.3.1...v0.3.2

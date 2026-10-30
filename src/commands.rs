@@ -10,10 +10,11 @@ use std::{
     process::Command,
     time::UNIX_EPOCH,
 };
+use zeroize::Zeroizing;
 
 use crate::{
     args::{AddArgs, Cli, Commands, CompletionShell, ShowArgs},
-    clip,
+    askpass, clip,
     config::{self, Config, Sort},
     entry::{self, Entry},
     slate::{self, Slate},
@@ -47,6 +48,16 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::Backup) => cmd_backup(s),
         Some(Commands::Show(a)) => cmd_show(s, a),
         Some(Commands::Copy { reference }) => cmd_copy(s, reference.as_deref().unwrap_or("")),
+        Some(Commands::Ssh { args }) => {
+            let Some(i) = args.iter().position(|a| a == "--") else {
+                bail!("usage: sheikah ssh [SSH_ARGS]... -- <REF>");
+            };
+            let (ssh_args, rest) = args.split_at(i);
+            match &rest[1..] {
+                [reference] if !ssh_args.is_empty() => cmd_ssh(s, reference, ssh_args),
+                _ => bail!("usage: sheikah ssh [SSH_ARGS]... -- <REF>"),
+            }
+        }
         Some(Commands::List { boxed }) => cmd_list(s, boxed),
         Some(Commands::Find { query }) => cmd_find(s, query.as_deref().unwrap_or("")),
         Some(Commands::Help { command }) => cmd_help(command.as_deref()),
@@ -103,6 +114,14 @@ fn tilde(p: &Path) -> String {
         }
         _ => p.display().to_string(),
     }
+}
+
+/// a tmpfs keeps decrypted data off disk; never ~/.sheikah, which may be `chattr +a`
+pub(crate) fn runtime_dir() -> PathBuf {
+    var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|d| d.is_dir())
+        .unwrap_or_else(|| PathBuf::from("/dev/shm"))
 }
 
 fn unlock(name: Option<&str>) -> Result<Slate> {
@@ -258,6 +277,21 @@ fn cmd_copy(name: Option<&str>, r: &str) -> Result<()> {
     Ok(())
 }
 
+fn cmd_ssh(name: Option<&str>, r: &str, args: &[String]) -> Result<()> {
+    let mut s = unlock(name)?;
+    let i = find_ref(&s.entries, r, s.config.table.sort)?;
+    if s.entries[i].is_recovery() {
+        bail!("{} holds recovery codes, not a password", s.entries[i].service);
+    }
+    let secret = Zeroizing::new(s.entries[i].password.clone());
+    mark_used(&mut s, i);
+    drop(s);
+    match askpass::ssh(secret, args)? {
+        0 => Ok(()),
+        code => std::process::exit(code),
+    }
+}
+
 fn cmd_edit(name: Option<&str>, r: &str) -> Result<()> {
     let mut s = unlock(name)?;
     let i = find_ref(&s.entries, r, s.config.table.sort)?;
@@ -359,12 +393,7 @@ fn cmd_config(name: Option<&str>) -> Result<()> {
     let mut s = unlock(name)?;
     let text = format!("{}\n{}", config::HELP, toml::to_string_pretty(&s.config)?);
 
-    // a tmpfs keeps the decrypted config off disk; never ~/.sheikah, which may be `chattr +a`
-    let dir = var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .filter(|d| d.is_dir())
-        .unwrap_or_else(|| PathBuf::from("/dev/shm"));
-    let tmp = dir.join(format!("sheikah-config-{}.toml", std::process::id()));
+    let tmp = runtime_dir().join(format!("sheikah-config-{}.toml", std::process::id()));
     {
         let mut f = fs::OpenOptions::new()
             .create_new(true)

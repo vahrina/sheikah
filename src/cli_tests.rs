@@ -74,6 +74,20 @@ fn combined_short_flags() {
 }
 
 #[test]
+fn ssh_passes_args_through() {
+    match parse(&[
+        "sheikah", "ssh", "-p", "2222", "pi", "-t", "htop", "--", "rpi",
+    ])
+    .command
+    {
+        Some(Commands::Ssh { args }) => {
+            assert_eq!(args, ["-p", "2222", "pi", "-t", "htop", "--", "rpi"]);
+        }
+        _ => std::panic!("expected ssh"),
+    }
+}
+
+#[test]
 fn help_by_word_or_flag() {
     for args in [["sheikah", "help", "show"], ["sheikah", "help", "-s"]] {
         match parse(&args).command {

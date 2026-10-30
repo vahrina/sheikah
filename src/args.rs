@@ -76,6 +76,21 @@ pub(crate) enum Commands {
         reference: Option<String>,
     },
 
+    /// run ssh with last arg being your desired entry
+    #[command(disable_help_flag = true)]
+    Ssh {
+        /// ssh args, then `--`, then the entry: `sheikah ssh -p 2222 pi -- rpi`
+        #[arg(
+            trailing_var_arg = true,
+            allow_hyphen_values = true,
+            required = true,
+            num_args = 1..,
+            value_name = "SSH_ARGS",
+            value_hint = ValueHint::Other
+        )]
+        args: Vec<String>,
+    },
+
     /// list all entries
     #[command(short_flag = 'l', disable_help_flag = true)]
     List {
