@@ -2,6 +2,12 @@
   a quiet cli password manager with one encrypted file, keeping your credentials safe & locally available - portable & accissible on the fly!
 </p>
 
+<p align="center">
+  <a href="https://github.com/vahrina/sheikah/actions/workflows/ci.yml"><img src="https://github.com/vahrina/sheikah/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="https://github.com/vahrina/sheikah/releases/latest"><img src="https://img.shields.io/github/v/release/vahrina/sheikah" alt="release"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="mit">
+</p>
+
 > disclosure: as i've become more busy & lost motivation with this project, i decided to hand it over to the clanker - don't expect quality non-ai content since [`3425c13`](https://github.com/vahrina/sheikah/commit/3425c1352afd90fcb69f5ef7d000eaab1c5e1835)
 
 ## installation
@@ -230,7 +236,7 @@ open it with `sheikah -C` / `config` (optionally `-S <slate>`), then sheikah unl
   - `boxed` (bool): always draw a box around `list` (same as `-b`)
   - `style` (str): box glyphs styling when `boxed` / `-b` is on:
 
-  | value | style rows, horizontal, vertical) |
+  | value | style |
   |---|---|
   | `ascii` | +, -, \| |
   | `square` | ┌┬┐, ├┼┤, └┴┘, ─, │ |
@@ -245,19 +251,19 @@ open it with `sheikah -C` / `config` (optionally `-S <slate>`), then sheikah unl
 **theme**:
   - `name` (str): base16 palette. built-ins & custom schemes in: [themes](#themes)
   - `<role>` (str, optional): override one role & leave the rest alone - available roles:
-  - `header`
-  - `border`
-  - `text`
-  - `muted`
-  - `key`
-  - `secret`
-  - `accent`
-  - `error`
-  - `selection`
+    - `header`
+    - `border`
+    - `text`
+    - `muted`
+    - `key`
+    - `secret`
+    - `accent`
+    - `error`
+    - `selection`
 
 **ui**:
   - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
-  - `inspect_delete` (bool): `delete` shows the entry before the usual `[y/N]` confirmation dialogue; `false` skips straight to the confirm
+  - `inspect_delete` (bool): `delete` shows the entry before the `[y/N]` confirmation dialogue; `false` skips straight to the confirm
 
 ## shell completion
 
@@ -294,10 +300,10 @@ rerun `sheikah completions zsh > ...` **after** updating sheikah & under an alia
 **q**: my shell doesn't display completions after following the [steps above](#shell-completion)
 
 **a**: check these in order:
-1. `which sheikah` points at the binary you expect, not an old copy under `~/.local/bin`
+1. `which sheikah` points at the binary you expect & version is up to date
 2. `~/.config/zsh/completions/_sheikah` exists & starts with `#compdef sheikah`
 3. `echo $fpath` includes `~/.config/zsh/completions` near the beginning. when using [omz](https://ohmyz.sh/)/[zinit](https://github.com/zdharma-continuum/zinit), put that `fpath=` line above the `compinit` call
-4. `autoload -Uz sheikah && which -a _sheikah` finds the function; if not, `exec zsh` (or `rm -f ~/.zcompdump* && exec zsh`)
+4. `autoload -Uz sheikah && which -a _sheikah` finds the function; if not, wipe & restart the shell: `rm -f ~/.zcompdump* && exec zsh && exec zsh`
 
 **q**: i updated but completions are outdated
 
@@ -328,7 +334,7 @@ built in are:
 - `black-metal`
 - `custom` keeps the plain bold/dim look
 
-any other scheme can be imported from the [tinted gallery](https://tinted-theming.github.io/tinted-gallery/), find the yaml files here: [tinted-theming/schemes](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)) & saved as `~/.sheikah/themes/<name>.yaml`. don't forget to also set `name = "<name>"`! a file with a built-in name replaces it & `base16-` prefixes from the gallery are ignored
+any other scheme can be imported from the [tinted gallery](https://tinted-theming.github.io/tinted-gallery/) (find the yaml files here: [tinted-theming/schemes](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)) & saved as `~/.sheikah/themes/<name>.yaml`. don't forget to also set `name = "<name>"` in the [config](#configuration)! a file with a built-in name replaces it & `base16-` prefixes from the gallery are ignored
 
 ### customizing the appearance
 
