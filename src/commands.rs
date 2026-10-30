@@ -96,14 +96,25 @@ fn cmd_help(sub: Option<&str>) -> Result<()> {
 
 /// `sheikah completions zsh > ~/.config/zsh/completions/_sheikah`
 fn cmd_completions(shell: CompletionShell) -> Result<()> {
-    let mut cmd = Cli::command();
-    let name = cmd.get_name().to_string();
     match shell {
-        CompletionShell::Zsh => {
-            clap_complete::generate(clap_complete::Shell::Zsh, &mut cmd, name, &mut io::stdout());
-        }
+        CompletionShell::Zsh => completions(clap_complete::Shell::Zsh, &mut io::stdout()),
     }
     Ok(())
+}
+
+/// the optional top-level REF would claim the first word, so `sheikah add -<tab>` completed
+/// as if `add` were an entry; completion only offers subcommands there
+pub(crate) fn completions(shell: clap_complete::Shell, out: &mut dyn Write) {
+    let full = Cli::command();
+    let name = full.get_name().to_string();
+    let mut cmd = clap::Command::new(name.clone())
+        .version(full.get_version().unwrap_or_default().to_string())
+        .disable_help_flag(true)
+        .disable_version_flag(true)
+        .disable_help_subcommand(true)
+        .args(full.get_arguments().filter(|a| a.get_id() != "reference").cloned())
+        .subcommands(full.get_subcommands().cloned());
+    clap_complete::generate(shell, &mut cmd, name, out);
 }
 
 /// `~/.sheikah/eye` instead of `/home/you/.sheikah/eye`
