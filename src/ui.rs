@@ -21,6 +21,7 @@ use crate::{
 static OUT: AtomicBool = AtomicBool::new(false);
 static ERR: AtomicBool = AtomicBool::new(false);
 static TRUECOLOR: AtomicBool = AtomicBool::new(false);
+static VERBOSE: AtomicBool = AtomicBool::new(true);
 static STYLES: LazyLock<RwLock<Styles>> = LazyLock::new(|| RwLock::new(Styles::default()));
 
 /// off for pipes, `NO_COLOR`, `TERM=dumb` and `-P`; 256 colors unless `COLORTERM` says truecolor
@@ -108,6 +109,36 @@ pub(crate) fn note(msg: &str) {
     eprintln!("{}", edim(msg));
 }
 
+/// `ui.verbose` from the slate config; usage tips & extra detail only show when on
+pub(crate) fn set_verbose(on: bool) {
+    VERBOSE.store(on, Relaxed);
+}
+
+/// a usage tip on stderr, dropped when not verbose
+pub(crate) fn tip(msg: &str) {
+    if VERBOSE.load(Relaxed) {
+        note(msg);
+    }
+}
+
+/// dimmed extra detail for a stderr prompt, empty when not verbose
+pub(crate) fn hint(s: &str) -> String {
+    if VERBOSE.load(Relaxed) {
+        edim(s)
+    } else {
+        String::new()
+    }
+}
+
+/// dimmed extra detail for a stdout line, empty when not verbose
+pub(crate) fn out_hint(s: &str) -> String {
+    if VERBOSE.load(Relaxed) {
+        dim(s)
+    } else {
+        String::new()
+    }
+}
+
 fn label(text: &str) -> String {
     format!("{text}{} ", edim(":"))
 }
@@ -133,7 +164,7 @@ pub(crate) fn prompt_opt(text: &str) -> Result<Option<String>> {
 
 /// one `> ` line per item until an empty line; rejects an empty list
 pub(crate) fn prompt_lines(text: &str) -> Result<Vec<String>> {
-    note(&format!("{text}, one per line, empty line to finish"));
+    note(&format!("{text}{}", hint(", one per line, empty line to finish")));
     let mut items = Vec::new();
     loop {
         eprint!("{} ", edim(">"));

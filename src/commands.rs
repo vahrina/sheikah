@@ -129,6 +129,7 @@ fn unlock(name: Option<&str>) -> Result<Slate> {
     let pass = ui::secret("master password")?;
     let s = Slate::load(path, pass)?;
     ui::set_theme(&s.config.theme);
+    ui::set_verbose(s.config.ui.verbose);
     Ok(s)
 }
 
@@ -179,7 +180,7 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     let field = |val: Option<String>, label: &str| -> Result<Option<String>> {
         match val {
             Some(x) => Ok(Some(x)),
-            None if interactive => ui::prompt_opt(&format!("{label} {}", ui::edim("(optional)"))),
+            None if interactive => ui::prompt_opt(&format!("{label}{}", ui::hint(" (optional)"))),
             None => Ok(None),
         }
     };
@@ -269,10 +270,10 @@ fn cmd_copy(name: Option<&str>, r: &str) -> Result<()> {
     let secs = s.config.clipboard.clear;
     let via = clip::copy(&e.secret(), secs)?;
     let when = match secs {
-        0 => format!("via {via}, never cleared"),
-        n => format!("via {via}, clears in {n}s"),
+        0 => format!(" via {via}, never cleared"),
+        n => format!(" via {via}, clears in {n}s"),
     };
-    ui::say(&format!("copied {} {}", e.service, ui::dim(&when)));
+    ui::say(&format!("copied {}{}", e.service, ui::out_hint(&when)));
     mark_used(&mut s, i);
     Ok(())
 }
@@ -296,7 +297,7 @@ fn cmd_edit(name: Option<&str>, r: &str) -> Result<()> {
     let mut s = unlock(name)?;
     let i = find_ref(&s.entries, r, s.config.table.sort)?;
     let e = &mut s.entries[i];
-    ui::note("'enter' to keep | '-' to clear");
+    ui::tip("'enter' to keep | '-' to clear");
 
     if let Some(x) = ui::prompt_opt(&format!(
         "service {}",

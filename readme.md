@@ -163,8 +163,6 @@ $ sheikah -lb
 
 `ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS` pointing back at sheikah (needs OpenSSH 8.4+). the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts and host key questions go to your terminal
 
-`list` & the fuzzy finder sort by `sort` under `[table]` in `sheikah -C`: `alphabetical` (default), `modified` or `used` (both newest first). `used` records every show/copy/find, which re-saves the slate; the previous file goes to `<slate>.used.bak` instead of the rotating backups
-
 ### multiple slates
 
 `-S` is a slate name under `~/.sheikah/` or a path, e.g. `sheikah -S work init`. `init` without `-S` creates `~/.sheikah/eye`
@@ -173,6 +171,91 @@ $ sheikah -lb
 - a unique prefix is enough: `-S w` picks `work`
 - with several slates & no `-S`, fzf asks which one
 - `export SHEIKAH_SLATE=work` in your shell rc makes `work` the default, `-S` still overrides it
+
+### configuration
+
+sheikah ships a variety of personalized options via `sheikah -C`/`config` in toml syntax:
+
+```toml
+[censor]
+glyph = "???"
+service = false
+username = false
+email = true
+password = true
+url = false
+notes = false
+category = false
+
+[table]
+index = false
+sort = "alphabetical"
+boxed = true
+style = "ascii"
+
+[clipboard]
+clear = 15
+
+[theme]
+name = "0x96f"
+header = "#fffeee"
+
+[ui]
+verbose = false
+```
+
+each slate carries its own (encrypted) configuration - there is no shared `~/.sheikah/config.toml`
+
+open it with `sheikah -C` / `config` (optionally `-S <slate>`), then sheikah unlocks the slate, dumps a commented toml into a short-lived `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & lets you edit it via your preferred `$VISUAL`/`$EDITOR`. an invalid configuration file keeps the changes untouched as you exit
+
+**censor**:
+  - `glyph` (str): shown instead of a hidden field
+  - `<field>` (bool): when `true`, that field is replaced by `glyph` in `list` & `show` - available fields:
+  - `service`
+  - `username`
+  - `email`
+  - `password`
+  - `url`
+  - `notes`
+  - `category`
+  explicit `show -p` / `-u` / .. always reveals the specified field
+
+**table**:
+  - `index` (bool): leading `#` column counting rows from 1 in `list`
+  - `sort` (str): order of `list` & `find`
+    - `alphabetical`: service, then username
+    - `modified`: newest edit first
+    - `used`: most recently shown / copied / found first. each hit re-saves the slate; previous file goes to `<slate>.used.bak` instead of the rotating backups
+  - `boxed` (bool): always draw a box around `list` (same as `-b`)
+  - `style` (str): box glyphs styling when `boxed` / `-b` is on:
+
+  | value | style rows, horizontal, vertical) |
+  |---|---|
+  | `ascii` | +, -, \| |
+  | `square` | ┌┬┐, ├┼┤, └┴┘, ─, │ |
+  | `rounded` | ╭┬╮, ├┼┤, ╰┴╯, ─, │ |
+  | `double` | ╔╦╗, ╠╬╣, ╚╩╝, ═, ║ |
+  | `heavy` | ┏┳┓, ┣╋┫, ┗┻┛, ━, ┃ |
+  | `dashed` | ┌┬┐, ├┼┤, └┴┘, ╌, ╎ |
+
+**clipboard**:
+  - `clear` (int): seconds until a copied secret is wiped after `-c` / `copy`. `0` disables this behaviour. the used clipboard tool is covered in [clipboard](#clipboard)
+
+**theme**:
+  - `name` (str): base16 palette. built-ins & custom schemes in: [themes](#themes)
+  - `<role>` (str, optional): override one role & leave the rest alone - available roles:
+  - `header`
+  - `border`
+  - `text`
+  - `muted`
+  - `key`
+  - `secret`
+  - `accent`
+  - `error`
+  - `selection`
+
+**ui**:
+  - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
 
 ## shell completion
 

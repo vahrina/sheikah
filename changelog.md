@@ -7,11 +7,17 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
-## [0.3.5] - 2026-10-30
-
 ### added
 
-- `sheikah ssh [SSH_ARGS]... -- <REF>`: unlock an entry & run ssh with its password via `SSH_ASKPASS` (OpenSSH 8.4+). piping `sheikah -s rpi -p | ssh pi` cannot work; ssh reads passphrases from `/dev/tty`, not stdin
+- `ui.verbose` (default `true`): `false` hides usage tips & extra detail, e.g. `(optional)` in `add`, `via xclip, clears in 45s` after `copy` and the `'enter' to keep` hint in `edit`
+- `sheikah ssh [SSH_ARGS]... -- <REF>`: unlock an entry & run ssh with its password via `SSH_ASKPASS` ([OpenSSH 8.4](https://www.openssh.org/txt/release-8.4)+). piping `sheikah -s rpi -p | ssh pi` cannot work; ssh reads passphrases from `/dev/tty`, not stdin
+
+### changes
+
+- readme: documented `configuration` & drop the duplicate explanation for sorting & whatever else i found
+- swap configuration `[table]` keys
+  - before: boxed, index, style, sort
+  - after: index, sort, boxed, style
 
 ## [0.3.4] - 2026-10-28
 
