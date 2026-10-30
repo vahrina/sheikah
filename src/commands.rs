@@ -445,6 +445,36 @@ fn cmd_config(name: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+/// `sheikah ssh` relies on `SSH_ASKPASS_REQUIRE`, added in OpenSSH 8.4
+fn ssh_row() -> [String; 3] {
+    let Some(p) = clip::which("ssh") else {
+        return ["ssh".into(), "-".into(), "missing".into()];
+    };
+    // `ssh -V` prints e.g. `OpenSSH_8.9p1 Ubuntu-3ubuntu0.18, OpenSSL ..` to stderr
+    let v = Command::new(&p)
+        .arg("-V")
+        .output()
+        .ok()
+        .and_then(|o| openssh_version(&String::from_utf8_lossy(&o.stderr)));
+    let status = match v {
+        Some((maj, min)) if (maj, min) >= (8, 4) => "ok".into(),
+        Some(_) => "needs 8.4+ for `ssh`".into(),
+        None => "unknown version".into(),
+    };
+    let info = match v {
+        Some((maj, min)) => format!("{maj}.{min} {}", p.display()),
+        None => p.display().to_string(),
+    };
+    ["ssh".into(), info, status]
+}
+
+fn openssh_version(s: &str) -> Option<(u32, u32)> {
+    let rest = s.split("OpenSSH_").nth(1)?;
+    let (maj, rest) = rest.split_once('.')?;
+    let min: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    Some((maj.parse().ok()?, min.parse().ok()?))
+}
+
 fn cmd_doctor(name: Option<&str>) -> Result<()> {
     let mut rows: Vec<[String; 3]> = Vec::new();
 
@@ -474,6 +504,7 @@ fn cmd_doctor(name: Option<&str>) -> Result<()> {
         };
         rows.push(row);
     }
+    rows.push(ssh_row());
 
     let mode = |p: &Path| fs::metadata(p).map(|m| m.permissions().mode() & 0o777).ok();
     let dir = slate::dir()?;
@@ -621,6 +652,15 @@ mod tests {
         assert_eq!(filter(&e, "dev", ABC), vec![3, 1]);
         assert_eq!(filter(&e, "pw", ABC), Vec::<usize>::new());
         assert_eq!(filter(&e, "", ABC).len(), 4);
+    }
+
+    #[test]
+    fn parses_openssh_version() {
+        let v = "OpenSSH_8.9p1 Ubuntu-3ubuntu0.18, OpenSSL 3.0.2 15 Mar 2022";
+        assert_eq!(openssh_version(v), Some((8, 9)));
+        assert_eq!(openssh_version("OpenSSH_10.0p2, LibreSSL"), Some((10, 0)));
+        assert_eq!(openssh_version("OpenSSH_for_Windows_9.5p1"), None);
+        assert_eq!(openssh_version("nope"), None);
     }
 
     #[test]

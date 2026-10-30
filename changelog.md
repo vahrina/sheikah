@@ -7,15 +7,16 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
-### fixed
-
-- zsh completion: `sheikah add -<tab>` (& every other subcommand) lists its flags right away; the optional top-level `REF` used to swallow the subcommand name, so only `sheikah add add -<tab>` worked before
-
 ### added
 
+- `doctor` checks for `ssh` & warns below OpenSSH 8.4, which `sheikah ssh` needs
 - `ui.inspect_delete`: `delete` shows the entry before confirming
 - `ui.verbose`: `false` hides usage tips & extra detail, e.g. `(optional)` in `add`, `via xclip, clears in 45s` after `copy` & the `'enter' to keep` hint in `edit`
 - `sheikah ssh [SSH_ARGS]... -- <REF>`: unlock an entry & run ssh with its password via `SSH_ASKPASS` ([OpenSSH 8.4](https://www.openssh.org/txt/release-8.4)+). piping `sheikah -s rpi -p | ssh pi` cannot work; ssh reads passphrases from `/dev/tty`, not stdin
+
+### fixed
+
+- zsh completion: `sheikah add -<tab>` (& every other subcommand) lists its flags right away; the optional top-level `REF` used to swallow the subcommand name, so only `sheikah add add -<tab>` worked before
 
 ### changed
 
