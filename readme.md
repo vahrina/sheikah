@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/vahrina/sheikah/actions/workflows/ci.yml"><img src="https://github.com/vahrina/sheikah/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
   <a href="https://github.com/vahrina/sheikah/releases/latest"><img src="https://img.shields.io/github/v/release/vahrina/sheikah" alt="release"></a>
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="mit">
+  <img src="https://img.shields.io/badge/license-mit-blue" alt="mit">
 </p>
 
 > disclosure: as i've become more busy & lost motivation with this project, i decided to hand it over to the clanker - don't expect quality non-ai content since [`3425c13`](https://github.com/vahrina/sheikah/commit/3425c1352afd90fcb69f5ef7d000eaab1c5e1835)

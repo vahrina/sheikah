@@ -21,6 +21,17 @@ jobs:
           title: $version
           changelog: changelog.md
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: prepend install notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          {
+            cat .github/release-notes.md
+            echo
+            gh release view "$tag" --json body -q .body
+          } > /tmp/notes.md
+          gh release edit "$tag" --notes-file /tmp/notes.md
 
   upload-assets:
     needs: create-release
