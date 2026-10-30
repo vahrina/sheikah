@@ -7,6 +7,8 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+## [0.3.5] - 2026-10-30
+
 ### added
 
 - `doctor` checks for `ssh` & warns below OpenSSH 8.4, which `sheikah ssh` needs

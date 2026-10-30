@@ -100,7 +100,7 @@ Commands:
   delete, -d   delete an entry
   show, -s     show an entry, or only the chosen fields
   copy, -c     copy an entry's password to the clipboard
-  ssh          run ssh, answering its passphrase prompt with the entry's password
+  ssh          run ssh with last arg being your desired entry
   list, -l     list all entries
   find, -f     fuzzy pick an entry, optionally seeded with QUERY
   config, -C   open the config with your preferred $EDITOR
