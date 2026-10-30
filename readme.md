@@ -202,6 +202,7 @@ header = "#fffeee"
 
 [ui]
 verbose = false
+inspect_delete = true
 ```
 
 each slate carries its own (encrypted) configuration - there is no shared `~/.sheikah/config.toml`
@@ -256,6 +257,7 @@ open it with `sheikah -C` / `config` (optionally `-S <slate>`), then sheikah unl
 
 **ui**:
   - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
+  - `inspect_delete` (bool): `delete` first asks `inspect <service> before deleting? [Y/n]` & shows the entry (censored per `[censor]`) before the usual `[y/N]` confirmation dialogue; `false` skips straight to the confirm
 
 ## shell completion
 

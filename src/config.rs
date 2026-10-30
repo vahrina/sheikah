@@ -16,11 +16,16 @@ pub(crate) struct Config {
 pub(crate) struct Ui {
     /// usage tips & extra detail like "(optional)" or "via xclip, clears in 45s"
     pub(crate) verbose: bool,
+    /// offer to show the entry before `delete` asks to confirm
+    pub(crate) inspect_delete: bool,
 }
 
 impl Default for Ui {
     fn default() -> Self {
-        Ui { verbose: true }
+        Ui {
+            verbose: true,
+            inspect_delete: true,
+        }
     }
 }
 
@@ -188,19 +193,18 @@ impl Default for Censor {
 pub(crate) const HELP: &str = "\
 # some configuration for your personal slate,
 #   see the full list here: https://github.com/vahrina/sheikah#configuration
-# censor
-#   glyph: shown instead of a hidden field
 # table
 #   index: number rows in list
-#   sort: alphabetical | modified | used (newest first)
+#   sort: alphabetical | modified | used
 #   style (boxed = true): ascii | square | rounded | double | heavy | dashed
 # clipboard
 #   clear: seconds until a copied secret is wiped, 0 to disable
 # theme
 #   name: 0x96f | ascendancy | black-metal | custom
-#   <role> overrides one role of the theme:
+#   <role> overrides one role of the theme
 # ui
-#   verbose: false hides tips like \"(optional)\" & \"via xclip, clears in 45s\"
+#   verbose: false hides tips like \"(optional)\" & \"via <tool>, clears in <N>s\"
+#   inspect_delete: false skips the \"inspect before deleting?\" question
 ";
 
 #[cfg(test)]
@@ -214,9 +218,9 @@ mod tests {
         assert_eq!(c.censor.glyph, "***");
         assert_eq!(c.table.sort, Sort::Alphabetical);
         assert_eq!(c.clipboard.clear, 45);
-        assert!(c.ui.verbose);
+        assert!(c.ui.verbose && c.ui.inspect_delete);
         let c: Config = toml::from_str("[ui]\nverbose = false").unwrap();
-        assert!(!c.ui.verbose);
+        assert!(!c.ui.verbose && c.ui.inspect_delete);
 
         let c: Config = toml::from_str("[table]\nsort = \"used\"\n[clipboard]\nclear = 0").unwrap();
         assert_eq!(c.table.sort, Sort::Used);
