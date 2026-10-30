@@ -16,7 +16,7 @@ pub(crate) struct Config {
 pub(crate) struct Ui {
     /// usage tips & extra detail like "(optional)" or "via xclip, clears in 45s"
     pub(crate) verbose: bool,
-    /// offer to show the entry before `delete` asks to confirm
+    /// show the entry before `delete` asks to confirm
     pub(crate) inspect_delete: bool,
 }
 
@@ -204,7 +204,7 @@ pub(crate) const HELP: &str = "\
 #   <role> overrides one role of the theme
 # ui
 #   verbose: false hides tips like \"(optional)\" & \"via <tool>, clears in <N>s\"
-#   inspect_delete: false skips the \"inspect before deleting?\" question
+#   inspect_delete: show the entry before `delete` asks to confirm
 ";
 
 #[cfg(test)]

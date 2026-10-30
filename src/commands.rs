@@ -339,9 +339,7 @@ fn edit_field(label: &str, cur: &mut Option<String>) -> Result<()> {
 fn cmd_delete(name: Option<&str>, r: &str) -> Result<()> {
     let mut s = unlock(name)?;
     let i = find_ref(&s.entries, r, s.config.table.sort)?;
-    if s.config.ui.inspect_delete
-        && ui::confirm_yes(&format!("inspect {} before deleting?", s.entries[i].service))?
-    {
+    if s.config.ui.inspect_delete {
         ui::detail(&s.entries[i], &s.config, &[]);
     }
     if !ui::confirm(&format!("delete {}?", s.entries[i].service))? {

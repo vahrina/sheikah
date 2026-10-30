@@ -191,13 +191,6 @@ pub(crate) fn confirm(text: &str) -> Result<bool> {
     let v = prompt(&format!("{text} {}", edim("[y/N]")))?;
     Ok(matches!(v.as_str(), "y" | "Y"))
 }
-
-/// like `confirm`, but an empty answer means yes
-pub(crate) fn confirm_yes(text: &str) -> Result<bool> {
-    let v = prompt(&format!("{text} {}", edim("[Y/n]")))?;
-    Ok(!matches!(v.as_str(), "n" | "N"))
-}
-
 pub(crate) fn secret(text: &str) -> Result<Zeroizing<String>> {
     match prompt_password(label(text)) {
         Ok(p) => Ok(Zeroizing::new(p)),
