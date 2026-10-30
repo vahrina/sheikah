@@ -121,6 +121,10 @@ fn zsh_completions() {
         parse(&["sheikah", "completions", "zsh"]).command,
         Some(Commands::Completions { .. })
     ));
+    assert!(matches!(
+        parse(&["sheikah", "completions", "update", "-d", "/tmp/zsh"]).command,
+        Some(Commands::Completions { dir: Some(_), .. })
+    ));
     assert!(Cli::try_parse_from(["sheikah", "completions", "fish"]).is_err());
 
     let mut out = Vec::new();

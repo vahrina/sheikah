@@ -7,6 +7,10 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+### added
+
+- `sheikah completions update [--dir <DIR>]` installs or refreshes zsh completions automatically
+
 ## [0.3.5] - 2026-10-30
 
 ### added

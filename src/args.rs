@@ -123,9 +123,14 @@ pub(crate) enum Commands {
     #[command(short_flag = 'b', disable_help_flag = true)]
     Backup,
 
-    /// print a shell completion script to stdout
+    /// print or update the zsh completion script
     #[command(disable_help_flag = true)]
-    Completions { shell: CompletionShell },
+    Completions {
+        action: CompletionAction,
+        /// completion directory
+        #[arg(short, long, value_name = "DIR", value_hint = ValueHint::Other)]
+        dir: Option<String>,
+    },
 
     /// print this message or the help of the given subcommand(s)
     #[command(disable_help_flag = true)]
@@ -136,8 +141,9 @@ pub(crate) enum Commands {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
-pub(crate) enum CompletionShell {
+pub(crate) enum CompletionAction {
     Zsh,
+    Update,
 }
 
 #[derive(Args, Default)]

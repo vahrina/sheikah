@@ -13,7 +13,7 @@ use std::{
 use zeroize::Zeroizing;
 
 use crate::{
-    args::{AddArgs, Cli, Commands, CompletionShell, ShowArgs},
+    args::{AddArgs, Cli, Commands, CompletionAction, ShowArgs},
     askpass, clip,
     config::{self, Config, Sort},
     entry::{self, Entry},
@@ -61,7 +61,7 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::List { boxed }) => cmd_list(s, boxed),
         Some(Commands::Find { query }) => cmd_find(s, query.as_deref().unwrap_or("")),
         Some(Commands::Help { command }) => cmd_help(command.as_deref()),
-        Some(Commands::Completions { shell }) => cmd_completions(shell),
+        Some(Commands::Completions { action, dir }) => cmd_completions(action, dir.as_deref()),
         None => match cli.reference {
             Some(r) => cmd_show(
                 s,
@@ -94,10 +94,23 @@ fn cmd_help(sub: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// `sheikah completions zsh > ~/.config/zsh/completions/_sheikah`
-fn cmd_completions(shell: CompletionShell) -> Result<()> {
-    match shell {
-        CompletionShell::Zsh => completions(clap_complete::Shell::Zsh, &mut io::stdout()),
+fn cmd_completions(action: CompletionAction, dir: Option<&str>) -> Result<()> {
+    match action {
+        CompletionAction::Zsh => completions(clap_complete::Shell::Zsh, &mut io::stdout()),
+        CompletionAction::Update => {
+            let dir = dir.map(PathBuf::from).unwrap_or_else(|| {
+                var_os("XDG_CONFIG_HOME")
+                    .map(PathBuf::from)
+                    .or_else(|| var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+                    .unwrap_or_else(|| PathBuf::from(".config"))
+                    .join("zsh/completions")
+            });
+            fs::create_dir_all(&dir)?;
+            let path = dir.join("_sheikah");
+            let mut file = fs::File::create(&path)?;
+            completions(clap_complete::Shell::Zsh, &mut file);
+            ui::say(&format!("updated {}", tilde(&path)));
+        }
     }
     Ok(())
 }

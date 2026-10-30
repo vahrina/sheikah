@@ -112,7 +112,7 @@ Commands:
   config, -C   open the config with your preferred $EDITOR
   passwd       change the master password
   backup, -b   pick one of the last saves & restore it
-  completions  print a shell completion script to stdout
+  completions  print or install a zsh completion script
   help         print this message or the help of the given subcommand(s)
 
 Arguments:
@@ -180,7 +180,7 @@ $ sheikah -lb
 
 ### configuration
 
-sheikah ships a variety of personalized options via `sheikah -C`/`config` in toml syntax:
+sheikah ships a variety of personalized options via `sheikah -C`/`config`, unlocks the slate, dumps a commented toml into a short-lived `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & lets you edit it via your preferred `$VISUAL`/`$EDITOR`. each slate carries its own (encrypted) configuration - there is no shared `~/.sheikah/config.toml`
 
 ```toml
 [censor]
@@ -211,9 +211,7 @@ verbose = false
 inspect_delete = true
 ```
 
-each slate carries its own (encrypted) configuration - there is no shared `~/.sheikah/config.toml`
-
-open it with `sheikah -C` / `config` (optionally `-S <slate>`), then sheikah unlocks the slate, dumps a commented toml into a short-lived `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & lets you edit it via your preferred `$VISUAL`/`$EDITOR`. an invalid configuration file keeps the changes untouched as you exit
+> an invalid configuration file keeps the changes untouched as you exit
 
 **censor**:
   - `glyph` (str): shown instead of a hidden field
@@ -267,25 +265,26 @@ open it with `sheikah -C` / `config` (optionally `-S <slate>`), then sheikah unl
 
 ## shell completion
 
+### set up completions for zsh
+
 > [zsh](https://www.zsh.org/) only for now, will commence with [bash](https://www.gnu.org/software/bash/)/[fish](https://fishshell.com/) once this project gains momentum
 
-write the script into a completions dir:
+install the script into the default completions dir:
 
 ```sh
-mkdir -p ~/.config/zsh/completions
-sheikah completions zsh > ~/.config/zsh/completions/_sheikah
+sheikah completions update
 ```
 
-zsh only picks it up if that dir is in `fpath` before `compinit` runs, so add this to your `~/.zshrc`
+this creates `${XDG_CONFIG_HOME:-~/.config}/zsh/completions/_sheikah`. use `-d`/`--dir <DIR>` when your file does **not** live in `~/.config/zsh/completions`. zsh only picks it up if that dir is in `fpath` before `compinit` runs, so add this to your `~/.zshrc`
 
 ```sh
 fpath=(~/.config/zsh/completions $fpath)
 autoload -Uz compinit && compinit
 ```
 
-> if your `~/.zshrc` already runs `compinit` (oh-my-zsh, zinit, ..), only add the `fpath=` line above
+> under an alias symlink, also add `compdef _sheikah <alias>`
 
-finally, reload your shell:
+if your `~/.zshrc` already runs `compinit` (oh-my-zsh, zinit, ..), only add the `fpath=` line above, then finally reload your shell:
 
 ```sh
 exec zsh
@@ -293,7 +292,7 @@ exec zsh
 
 > note that a mere `source ~/.zshrc` is not sufficient enough
 
-rerun `sheikah completions zsh > ...` **after** updating sheikah & under an alias symlink, also add `compdef _sheikah <alias>` to `~/.zshrc`
+rerun `sheikah completions update` after upgrading the binary
 
 ### troubleshooting [shell completion](#shell-completion)
 
@@ -303,7 +302,7 @@ rerun `sheikah completions zsh > ...` **after** updating sheikah & under an alia
 1. `which sheikah` points at the binary you expect & version is up to date
 2. `~/.config/zsh/completions/_sheikah` exists & starts with `#compdef sheikah`
 3. `echo $fpath` includes `~/.config/zsh/completions` near the beginning. when using [omz](https://ohmyz.sh/)/[zinit](https://github.com/zdharma-continuum/zinit), put that `fpath=` line above the `compinit` call
-4. `autoload -Uz sheikah && which -a _sheikah` finds the function; if not, wipe & restart the shell: `rm -f ~/.zcompdump* && exec zsh && exec zsh`
+4. `autoload -Uz sheikah && which -a _sheikah` finds the function; if not, wipe & restart the shell: `rm -f ~/.zcompdump* && exec zsh`
 
 **q**: i updated but completions are outdated
 
