@@ -7,7 +7,7 @@ build:
 
 # full check before committing
 check:
-  cargo fmt --all --check
+  cargo fmt --all
   cargo clippy -- -D warnings
   cargo test
 

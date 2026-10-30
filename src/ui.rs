@@ -164,7 +164,10 @@ pub(crate) fn prompt_opt(text: &str) -> Result<Option<String>> {
 
 /// one `> ` line per item until an empty line; rejects an empty list
 pub(crate) fn prompt_lines(text: &str) -> Result<Vec<String>> {
-    note(&format!("{text}{}", hint(", one per line, empty line to finish")));
+    note(&format!(
+        "{text}{}",
+        hint(", one per line, empty line to finish")
+    ));
     let mut items = Vec::new();
     loop {
         eprint!("{} ", edim(">"));

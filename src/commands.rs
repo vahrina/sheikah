@@ -112,7 +112,11 @@ pub(crate) fn completions(shell: clap_complete::Shell, out: &mut dyn Write) {
         .disable_help_flag(true)
         .disable_version_flag(true)
         .disable_help_subcommand(true)
-        .args(full.get_arguments().filter(|a| a.get_id() != "reference").cloned())
+        .args(
+            full.get_arguments()
+                .filter(|a| a.get_id() != "reference")
+                .cloned(),
+        )
         .subcommands(full.get_subcommands().cloned());
     clap_complete::generate(shell, &mut cmd, name, out);
 }
@@ -293,7 +297,10 @@ fn cmd_ssh(name: Option<&str>, r: &str, args: &[String]) -> Result<()> {
     let mut s = unlock(name)?;
     let i = find_ref(&s.entries, r, s.config.table.sort)?;
     if s.entries[i].is_recovery() {
-        bail!("{} holds recovery codes, not a password", s.entries[i].service);
+        bail!(
+            "{} holds recovery codes, not a password",
+            s.entries[i].service
+        );
     }
     let secret = Zeroizing::new(s.entries[i].password.clone());
     mark_used(&mut s, i);
