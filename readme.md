@@ -10,6 +10,14 @@
 
 > disclosure: as i've become more busy & lost motivation with this project, i decided to hand it over to the clanker - don't expect quality non-ai content since [`3425c13`](https://github.com/vahrina/sheikah/commit/3425c1352afd90fcb69f5ef7d000eaab1c5e1835)
 
+## reference for the curious
+
+what's "sheikah"? what's a "slate"? what is *this* & *why*?
+
+- this analogy comes from the [sheikah race](https://zelda.fandom.com/wiki/sheikah) in the [zelda franchise](https://zelda.fandom.com/wiki/The_Legend_of_Zelda_(series)), not specifically tied to a single game in the series. they are a mysterious, hidden clan that protect the [royal family](https://zelda.fandom.com/wiki/Royal_Family_of_Hyrule) - likewise protecting your credentials in secrecy
+- a slate refers to the [sheikah slate](https://zelda.fandom.com/wiki/Sheikah_Slate), made for the [chosen one](https://zelda.fandom.com/wiki/Link), which contains all necessary data to complete the game start to finish - likewise a slate containing all the data you provide
+- the reason i came up with this was for one, not liking the gui feel that every other password manager i've tried so far provides. the other reason being to not leave the shell anymore, as my previous approach was quite tedious with a usb
+
 ## installation
 
 ### installer
@@ -17,17 +25,22 @@
 downloads the right release archive for your machine into `~/.local/bin` - rerun to update
 
 ```sh
+# inspect the installer first
 curl -fsSL https://raw.githubusercontent.com/vahrina/sheikah/main/install.sh -o install.sh \
   && less $_
+
+# if everything looks fine to you, proceed
 bash install.sh
 ```
+
+> don't forget to press <kbd>q</kbd> to exit the inspection
 
 ### manual
 
 grab `sheikah-vX.Y.Z-<arch>.tar.gz` from [releases](https://github.com/vahrina/sheikah/releases), then:
 
 ```sh
-tar -xzf sheikah-v0.2.0-x86_64.tar.gz
+tar -xzf sheikah*.tar.gz
 install -m 755 sheikah ~/.local/bin/
 ```
 
@@ -52,8 +65,8 @@ to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag`
 ## dependencies
 
 - [`fzf`](https://github.com/junegunn/fzf) (required)
-- a clipboard tool, (optional, see [clipboard](#clipboard))
-- [`just`](https://github.com/casey/just#installation) (optional, from-source only)
+- a [clipboard](#clipboard) tool, (optional but recommended)
+- [`just`](https://github.com/casey/just#installation) (optional, recommended when compiling from source)
 
 ## get started
 
