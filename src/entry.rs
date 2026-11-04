@@ -16,8 +16,11 @@ pub(crate) struct Entry {
     pub(crate) url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) notes: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) category: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) tags: Vec<String>,
+    /// pre-tags field; absorbed into `tags` on load and never written back
+    #[serde(default, skip_serializing)]
+    category: Option<String>,
     pub(crate) created: String,
     pub(crate) modified: String,
     /// last show/copy/find, only stamped while `table.sort = "used"`
@@ -55,19 +58,53 @@ impl Entry {
     }
 
     /// every searchable field except the password
-    pub(crate) fn haystack(&self) -> [&str; 6] {
+    pub(crate) fn haystack(&self) -> Vec<&str> {
         fn o(f: &Option<String>) -> &str {
             f.as_deref().unwrap_or("")
         }
-        [
-            &self.service,
+        let mut h = vec![
+            self.service.as_str(),
             o(&self.username),
             o(&self.email),
             o(&self.url),
             o(&self.notes),
-            o(&self.category),
-        ]
+        ];
+        h.extend(self.tags.iter().map(String::as_str));
+        h
     }
+
+    /// move a legacy `category` value into `tags`; true when the on-disk shape needs a rewrite
+    pub(crate) fn migrate_category(&mut self) -> bool {
+        let Some(cat) = self.category.take() else {
+            return false;
+        };
+        for t in parse_tags(&cat) {
+            if !self.tags.contains(&t) {
+                self.tags.push(t);
+            }
+        }
+        true
+    }
+
+    pub(crate) fn tags_display(&self) -> Option<String> {
+        (!self.tags.is_empty()).then(|| self.tags.join(", "))
+    }
+
+    pub(crate) fn has_tags(&self, required: &[String]) -> bool {
+        required.iter().all(|t| self.tags.iter().any(|et| et == t))
+    }
+}
+
+/// trim, lowercase, drop empties & duplicates from a comma-separated tags string
+pub(crate) fn parse_tags(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for part in s.split(',') {
+        let t = part.trim().to_lowercase();
+        if !t.is_empty() && !out.contains(&t) {
+            out.push(t);
+        }
+    }
+    out
 }
 
 /// current UTC time as RFC3339 (`2026-10-21T01:48:00Z`)
@@ -123,5 +160,25 @@ mod tests {
         assert_eq!(rfc3339(0), "1970-01-01T00:00:00Z");
         assert_eq!(rfc3339(951_782_400), "2000-02-29T00:00:00Z");
         assert_eq!(rfc3339(1_792_547_280), "2026-10-21T01:48:00Z");
+    }
+
+    #[test]
+    fn parse_tags_trims_lowers_dedups() {
+        assert_eq!(parse_tags("git, DEV, git, , ,Dev"), vec!["git", "dev"]);
+        assert!(parse_tags("  , , ").is_empty());
+    }
+
+    #[test]
+    fn migrates_legacy_category_into_tags() {
+        let mut e: Entry = serde_json::from_str(
+            r#"{"service":"x","password":"pw","category":"Mail","created":"","modified":""}"#,
+        )
+        .unwrap();
+        assert!(e.migrate_category());
+        assert_eq!(e.tags, vec!["mail"]);
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(!json.contains("category"));
+        assert!(json.contains("\"tags\":[\"mail\"]"));
+        assert!(!e.migrate_category());
     }
 }

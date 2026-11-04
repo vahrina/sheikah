@@ -95,7 +95,8 @@ pub(crate) struct Censor {
     pub(crate) password: bool,
     pub(crate) url: bool,
     pub(crate) notes: bool,
-    pub(crate) category: bool,
+    #[serde(alias = "category")]
+    pub(crate) tags: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
@@ -185,7 +186,7 @@ impl Default for Censor {
             password: true,
             url: false,
             notes: false,
-            category: false,
+            tags: false,
         }
     }
 }

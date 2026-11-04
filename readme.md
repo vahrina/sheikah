@@ -136,7 +136,7 @@ Usage: sheikah {add|-a} [OPTIONS]
 
 Options:
   -s <STR>            label for site/app (netflix, proton, ..)
-  -c <STR>            category (series, mail, ..)
+  -t, --tags <STR>    comma-separated tags (git, dev)
   -P, --plain         disable colors (respects NO_COLOR)
   -d <STR>            domain/url
   -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
@@ -151,8 +151,10 @@ Options:
 every action works as a word or a single-dash flag
 
 ```console
-$ sheikah add -s 'csfloat' -c 'trading'
-  # adds a new service with a categroy
+$ sheikah add -s 'csfloat' -t 'trading, market'
+  # adds a new service with tags
+$ sheikah list --tag trading
+  # only entries tagged `trading`
 $ sheikah github
   # will look for an entry 'github', picker will pop up if there are multiple
 $ sheikah -s github -p | docker login -u v --password-stdin
@@ -191,7 +193,7 @@ email = true
 password = true
 url = false
 notes = false
-category = false
+tags = false
 
 [table]
 index = false
@@ -222,7 +224,7 @@ inspect_delete = true
   - `password`
   - `url`
   - `notes`
-  - `category`
+  - `tags`
   explicit `show -p` / `-u` / .. always reveals the specified field
 
 **table**:

@@ -231,11 +231,8 @@ pub(crate) fn pick(entries: &[Entry], idx: &[usize], query: &str) -> Result<usiz
         .iter()
         .map(|&i| {
             let e = &entries[i];
-            [
-                clean(&e.service),
-                or_dash(&e.username),
-                or_dash(&e.category),
-            ]
+            let tags = e.tags_display();
+            [clean(&e.service), or_dash(&e.username), or_dash(&tags)]
         })
         .collect();
     let w = widths(&rows);
@@ -334,7 +331,7 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
     let c = &cfg.censor;
     let glyph = c.glyph.as_str();
     let index = cfg.table.index;
-    let mut head: Vec<String> = ["service", "username", "email", "category"]
+    let mut head: Vec<String> = ["service", "username", "email", "tags"]
         .map(String::from)
         .to_vec();
     if index {
@@ -345,11 +342,12 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
         .enumerate()
         .map(|(n, &i)| {
             let e = &entries[i];
+            let tags = e.tags_display();
             let mut r = vec![
                 shown(Some(&e.service), c.service, glyph),
                 shown(e.username.as_deref(), c.username, glyph),
                 shown(e.email.as_deref(), c.email, glyph),
-                shown(e.category.as_deref(), c.category, glyph),
+                shown(tags.as_deref(), c.tags, glyph),
             ];
             if index {
                 r.insert(0, (n + 1).to_string());
@@ -414,13 +412,14 @@ pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
     } else {
         ("password", Some(secret.as_str()))
     };
+    let tags = e.tags_display();
     let fields = [
         ("service", Some(e.service.as_str()), c.service),
         ("username", e.username.as_deref(), c.username),
         ("email", e.email.as_deref(), c.email),
         (secret_key, secret_val, c.password),
         ("url", e.url.as_deref(), c.url),
-        ("category", e.category.as_deref(), c.category),
+        ("tags", tags.as_deref(), c.tags),
         ("notes", e.notes.as_deref(), c.notes),
         ("created", Some(e.created.as_str()), false),
         ("modified", Some(e.modified.as_str()), false),
