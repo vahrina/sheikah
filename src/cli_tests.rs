@@ -1,5 +1,6 @@
 use super::*;
 use crate::args::{Cli, Commands};
+use crate::entry::EntryType;
 use clap::CommandFactory;
 use rpassword::{ConfigBuilder, read_password_with_config};
 
@@ -14,6 +15,8 @@ fn add_with_all_args() {
         "add",
         "-s",
         "github",
+        "-T",
+        "login",
         "-t",
         "git, Dev",
         "-u",
@@ -24,19 +27,26 @@ fn add_with_all_args() {
     match cli.command {
         Some(Commands::Add(a)) => {
             assert_eq!(a.service.as_deref(), Some("github"));
+            assert_eq!(a.kind, Some(EntryType::Login));
             assert_eq!(a.tags.as_deref(), Some("git, Dev"));
             assert_eq!(a.user.as_deref(), Some("v"));
             assert_eq!(a.notes.as_deref(), Some("funny note"));
-            assert!(!a.recovery);
         }
         _ => std::panic!("expected Add command"),
     }
-    for args in [["sheikah", "add", "-r"], ["sheikah", "-a", "--recovery"]] {
+    for (args, want) in [
+        (["sheikah", "add", "-T", "recovery"], EntryType::Recovery),
+        (["sheikah", "-a", "--type", "backup"], EntryType::Backup),
+        (["sheikah", "add", "-T", "ssh"], EntryType::Ssh),
+    ] {
         match parse(&args).command {
-            Some(Commands::Add(a)) => assert!(a.recovery),
+            Some(Commands::Add(a)) => assert_eq!(a.kind, Some(want)),
             _ => std::panic!("expected Add command"),
         }
     }
+    assert!(Cli::try_parse_from(["sheikah", "add", "-r"]).is_err());
+    assert!(Cli::try_parse_from(["sheikah", "add", "--recovery"]).is_err());
+    assert!(Cli::try_parse_from(["sheikah", "add", "-T", "api"]).is_err());
 }
 
 #[test]

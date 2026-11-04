@@ -1,9 +1,67 @@
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fmt,
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+/// builtin entry types; drives which fields `add`/`edit` ask for
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum EntryType {
+    Login,
+    Recovery,
+    Backup,
+    Ssh,
+    #[default]
+    Custom,
+}
+
+impl EntryType {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            EntryType::Login => "login",
+            EntryType::Recovery => "recovery",
+            EntryType::Backup => "backup",
+            EntryType::Ssh => "ssh",
+            EntryType::Custom => "custom",
+        }
+    }
+
+    pub(crate) fn uses_recovery(self) -> bool {
+        matches!(self, EntryType::Recovery | EntryType::Backup)
+    }
+}
+
+impl fmt::Display for EntryType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for EntryType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "login" => Ok(EntryType::Login),
+            "recovery" => Ok(EntryType::Recovery),
+            "backup" => Ok(EntryType::Backup),
+            "ssh" => Ok(EntryType::Ssh),
+            "custom" => Ok(EntryType::Custom),
+            other => Err(format!(
+                "unknown type '{other}' (login|recovery|backup|ssh|custom)"
+            )),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub(crate) struct Entry {
     pub(crate) service: String,
+    /// absent in older slates; filled with `custom` on load
+    #[serde(default, rename = "type")]
+    pub(crate) kind: Option<EntryType>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) username: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -14,6 +72,9 @@ pub(crate) struct Entry {
     pub(crate) recovery: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) url: Option<String>,
+    /// ssh port when `type = ssh`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) port: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) notes: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -41,8 +102,12 @@ impl Entry {
         self.modified = now();
     }
 
+    pub(crate) fn entry_type(&self) -> EntryType {
+        self.kind.unwrap_or(EntryType::Custom)
+    }
+
     pub(crate) fn is_recovery(&self) -> bool {
-        !self.recovery.is_empty()
+        self.entry_type().uses_recovery() || !self.recovery.is_empty()
     }
 
     /// the password, or the recovery codes one per line
@@ -61,13 +126,25 @@ impl Entry {
         }
         let mut h = vec![
             self.service.as_str(),
+            self.entry_type().as_str(),
             o(&self.username),
             o(&self.email),
             o(&self.url),
+            o(&self.port),
             o(&self.notes),
         ];
         h.extend(self.tags.iter().map(String::as_str));
         h
+    }
+
+    /// fill missing `type` with `custom`; true when the on-disk shape needs a rewrite
+    pub(crate) fn migrate_type(&mut self) -> bool {
+        if self.kind.is_none() {
+            self.kind = Some(EntryType::Custom);
+            true
+        } else {
+            false
+        }
     }
 
     pub(crate) fn tags_display(&self) -> Option<String> {
@@ -150,5 +227,26 @@ mod tests {
     fn parse_tags_trims_lowers_dedups() {
         assert_eq!(parse_tags("git, DEV, git, , ,Dev"), vec!["git", "dev"]);
         assert!(parse_tags("  , , ").is_empty());
+    }
+    #[test]
+    fn migrates_missing_type_to_custom() {
+        let mut e: Entry =
+            serde_json::from_str(r#"{"service":"x","password":"pw","created":"","modified":""}"#)
+                .unwrap();
+        assert!(e.kind.is_none());
+        assert_eq!(e.entry_type(), EntryType::Custom);
+        assert!(e.migrate_type());
+        assert_eq!(e.kind, Some(EntryType::Custom));
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"type\":\"custom\""));
+        assert!(!e.migrate_type());
+    }
+
+    #[test]
+    fn entry_type_parses_builtins() {
+        assert_eq!("login".parse::<EntryType>().unwrap(), EntryType::Login);
+        assert_eq!("backup".parse::<EntryType>().unwrap(), EntryType::Backup);
+        assert_eq!("SSH".parse::<EntryType>().unwrap(), EntryType::Ssh);
+        assert!("api".parse::<EntryType>().is_err());
     }
 }

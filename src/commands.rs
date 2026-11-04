@@ -39,9 +39,11 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
 
     match cli.command {
         Some(Commands::Add(a)) => cmd_add(s, a),
-        Some(Commands::Edit { reference, tags }) => {
-            cmd_edit(s, reference.as_deref().unwrap_or(""), tags.as_deref())
-        }
+        Some(Commands::Edit {
+            reference,
+            kind,
+            tags,
+        }) => cmd_edit(s, reference.as_deref().unwrap_or(""), kind, tags.as_deref()),
         Some(Commands::Delete { reference }) => cmd_delete(s, reference.as_deref().unwrap_or("")),
         Some(Commands::Config { slate }) => cmd_config(slate.as_deref().or(s)),
         Some(Commands::Init) => cmd_init(s),
@@ -196,6 +198,28 @@ fn cmd_init(name: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+fn resolve_type(given: Option<entry::EntryType>, interactive: bool) -> Result<entry::EntryType> {
+    match given {
+        Some(k) => Ok(k),
+        None if interactive => loop {
+            let raw = ui::prompt("type")?;
+            match raw.parse::<entry::EntryType>() {
+                Ok(k) => break Ok(k),
+                Err(e) => ui::note(&e),
+            }
+        },
+        None => Ok(entry::EntryType::Custom),
+    }
+}
+
+fn take_or_prompt(val: Option<String>, label: &str, ask: bool) -> Result<Option<String>> {
+    match val {
+        Some(x) => Ok((!x.is_empty()).then_some(x)),
+        None if ask => ui::prompt_opt(label),
+        None => Ok(None),
+    }
+}
+
 fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     let mut s = unlock(name)?;
     let interactive = a.service.is_none();
@@ -207,37 +231,58 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     if service.is_empty() {
         bail!("service must not be empty");
     }
-    let field = |val: Option<String>, label: &str| -> Result<Option<String>> {
-        match val {
-            Some(x) => Ok(Some(x)),
-            None if interactive => ui::prompt_opt(&format!("{label}{}", ui::hint(" (optional)"))),
-            None => Ok(None),
-        }
-    };
-    let username = field(a.user, "username")?;
-    let email = field(a.email, "email")?;
-    let url = field(a.domain, "url")?;
-    let tags = match a.tags {
-        Some(x) => entry::parse_tags(&x),
-        None if interactive => field(None, "tags")?
-            .map(|x| entry::parse_tags(&x))
-            .unwrap_or_default(),
-        None => Vec::new(),
-    };
-    let notes = field(a.notes, "notes")?;
 
-    let mut e = if a.recovery {
-        let mut e = Entry::new(service, String::new());
-        e.recovery = ui::prompt_lines("recovery codes")?;
-        e
-    } else {
-        Entry::new(service, ui::new_secret("password")?.to_string())
-    };
-    e.username = username;
-    e.email = email;
-    e.url = url;
-    e.tags = tags;
-    e.notes = notes;
+    let kind = resolve_type(a.kind, interactive)?;
+    let mut e = Entry::new(service, String::new());
+    e.kind = Some(kind);
+
+    match kind {
+        entry::EntryType::Login => {
+            e.username = take_or_prompt(a.user, "username", true)?;
+            e.email = take_or_prompt(a.email, "email", true)?;
+            e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
+            e.notes = a.notes.filter(|n| !n.is_empty());
+            e.password = ui::new_secret("password")?.to_string();
+        }
+        entry::EntryType::Recovery | entry::EntryType::Backup => {
+            e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
+            e.notes = a.notes.filter(|n| !n.is_empty());
+            e.recovery = ui::prompt_lines("recovery codes")?;
+        }
+        entry::EntryType::Ssh => {
+            // host lives in `url`. future option: load the key into ssh-agent
+            ui::tip("ssh-agent key loading is not implemented yet");
+            e.url = take_or_prompt(a.domain, "host", true)?;
+            e.username = take_or_prompt(a.user, "username", true)?;
+            e.port = take_or_prompt(None, "port", true)?;
+            e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
+            e.notes = a.notes.filter(|n| !n.is_empty());
+            e.password = ui::new_secret("password")?.to_string();
+        }
+        entry::EntryType::Custom => {
+            let field = |val: Option<String>, label: &str| -> Result<Option<String>> {
+                match val {
+                    Some(x) => Ok(Some(x)),
+                    None if interactive => {
+                        ui::prompt_opt(&format!("{label}{}", ui::hint(" (optional)")))
+                    }
+                    None => Ok(None),
+                }
+            };
+            e.username = field(a.user, "username")?;
+            e.email = field(a.email, "email")?;
+            e.url = field(a.domain, "url")?;
+            e.tags = match a.tags.as_deref() {
+                Some(x) => entry::parse_tags(x),
+                None if interactive => field(None, "tags")?
+                    .map(|x| entry::parse_tags(&x))
+                    .unwrap_or_default(),
+                None => Vec::new(),
+            };
+            e.notes = field(a.notes, "notes")?;
+            e.password = ui::new_secret("password")?.to_string();
+        }
+    }
 
     let svc = e.service.clone();
     s.entries.push(e);
@@ -367,7 +412,12 @@ fn cmd_ssh(name: Option<&str>, r: &str, args: &[String]) -> Result<()> {
     }
 }
 
-fn cmd_edit(name: Option<&str>, r: &str, tags: Option<&str>) -> Result<()> {
+fn cmd_edit(
+    name: Option<&str>,
+    r: &str,
+    kind: Option<entry::EntryType>,
+    tags: Option<&str>,
+) -> Result<()> {
     let mut s = unlock(name)?;
     let i = find_ref(&s.entries, r, s.config.table.sort)?;
     let e = &mut s.entries[i];
@@ -380,20 +430,52 @@ fn cmd_edit(name: Option<&str>, r: &str, tags: Option<&str>) -> Result<()> {
     {
         e.service = x;
     }
-    edit_field("username", &mut e.username)?;
-    edit_field("email", &mut e.email)?;
-    edit_field("url", &mut e.url)?;
+
+    match kind {
+        Some(k) => e.kind = Some(k),
+        None => {
+            let shown = ui::edim(&format!("[{}]", e.entry_type()));
+            if let Some(x) = ui::prompt_opt(&format!("type {shown}"))?
+                && x != "-"
+            {
+                e.kind = Some(x.parse::<entry::EntryType>().map_err(anyhow::Error::msg)?);
+            }
+        }
+    }
+
+    match e.entry_type() {
+        entry::EntryType::Login => {
+            edit_field("username", &mut e.username)?;
+            edit_field("email", &mut e.email)?;
+        }
+        entry::EntryType::Recovery | entry::EntryType::Backup => {}
+        entry::EntryType::Ssh => {
+            edit_field("host", &mut e.url)?;
+            edit_field("username", &mut e.username)?;
+            edit_field("port", &mut e.port)?;
+        }
+        entry::EntryType::Custom => {
+            edit_field("username", &mut e.username)?;
+            edit_field("email", &mut e.email)?;
+            edit_field("url", &mut e.url)?;
+            edit_field("notes", &mut e.notes)?;
+        }
+    }
+
     match tags {
         Some(t) => e.tags = entry::parse_tags(t),
-        None => edit_tags(&mut e.tags)?,
+        None if e.entry_type() == entry::EntryType::Custom => edit_tags(&mut e.tags)?,
+        None => {}
     }
-    edit_field("notes", &mut e.notes)?;
-    if e.is_recovery() {
+
+    if e.entry_type().uses_recovery() {
         if ui::confirm("replace recovery codes?")? {
             e.recovery = ui::prompt_lines("recovery codes")?;
+            e.password.clear();
         }
     } else if ui::confirm("change password?")? {
         e.password = ui::new_secret("password")?.to_string();
+        e.recovery.clear();
     }
     e.touch();
 

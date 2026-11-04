@@ -136,23 +136,34 @@ Usage: sheikah {add|-a} [OPTIONS]
 
 Options:
   -s <STR>            label for site/app (netflix, proton, ..)
+  -T, --type <TYPE>   login | recovery | backup | ssh | custom
   -t, --tags <STR>    comma-separated tags (git, dev)
   -P, --plain         disable colors (respects NO_COLOR)
-  -d <STR>            domain/url
+  -d <STR>            domain/url (ssh host for type=ssh)
   -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
   -e <STR>            email
   -u <STR>            username/login
   -n <STR>            optional notes
-  -r, --recovery      store recovery codes instead of a password
 ```
+
+**types** (`-T` / `--type`; interactive `add` prompts when omitted, otherwise defaults to `custom`):
+
+| type | prompts |
+|---|---|
+| `login` | username, email, password |
+| `recovery` / `backup` | recovery codes only (replaces the old `-r` flag) |
+| `ssh` | host, username, port, password |
+| `custom` | regular optional fields + password |
 
 ### example usages
 
 every action works as a word or a single-dash flag
 
 ```console
-$ sheikah add -s 'csfloat' -t 'trading, market'
-  # adds a new service with tags
+$ sheikah add -s 'csfloat' -T login -t 'trading, market'
+  # login entry tagged trading, market
+$ sheikah add -s 'github-codes' -T recovery
+  # stores recovery codes (replaces the old `-r` flag)
 $ sheikah list --tag trading
   # only entries tagged `trading`
 $ sheikah github
