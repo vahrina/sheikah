@@ -1,2 +1,4 @@
 /target
-deps.md
+*.md
+!readme.md
+!changelog.md
