@@ -73,13 +73,13 @@ to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag`
 
 ### initializing a new slate
 
-create your very first, encrypted file at `~/.sheikah/eye`; pass `-S` for a custom name
+create your very first, encrypted file at `~/.sheikah/eye`
 
-```console
-$ sheikah init
+```sh
+sheikah init
 ```
 
-> optionally, you can specify a new name with the `-S` flag
+> optionally, you can specify a new name with the `-S` flag; more information about your slate can be found in [multiple slates](#multiple-slates)
 
 ### basic operations
 
@@ -94,8 +94,8 @@ $ sheikah show gentoo
 
 also make sure all [requirements](#dependencies) are satisfied after initializing a new slate:
 
-```console
-$ sheikah doctor
+```sh
+sheikah doctor
 ```
 
 ## reference
@@ -271,8 +271,8 @@ inspect_delete = true
     - `accent`
     - `error`
     - `selection`
-    - **accepted values for given roles**:
-  - **name convention**: black red green yellow blue magenta cyan white (plus `bright-*`)
+  - **accepted values for given roles**:
+    - **name convention**: black red green yellow blue magenta cyan white (plus `bright-*`)
     - **base convention**: `baseXX` (see [here](https://github.com/chriskempson/base16/blob/main/styling.md))
     - **rgb**: `#rrggbb`
     - **default**: terminal's own foreground
