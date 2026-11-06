@@ -331,7 +331,7 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
     let c = &cfg.censor;
     let glyph = c.glyph.as_str();
     let index = cfg.table.index;
-    let mut head: Vec<String> = ["service", "username", "email", "tags"]
+    let mut head: Vec<String> = ["service", "type", "username", "email", "tags"]
         .map(String::from)
         .to_vec();
     if index {
@@ -345,6 +345,7 @@ pub(crate) fn table(entries: &[Entry], idx: &[usize], cfg: &Config, boxed: bool)
             let tags = e.tags_display();
             let mut r = vec![
                 shown(Some(&e.service), c.service, glyph),
+                shown(Some(e.entry_type().as_str()), false, glyph),
                 shown(e.username.as_deref(), c.username, glyph),
                 shown(e.email.as_deref(), c.email, glyph),
                 shown(tags.as_deref(), c.tags, glyph),
@@ -413,12 +414,20 @@ pub(crate) fn detail(e: &Entry, cfg: &Config, only: &[&str]) {
         ("password", Some(secret.as_str()))
     };
     let tags = e.tags_display();
+    let kind = e.entry_type().as_str();
+    let url_key = if e.entry_type() == crate::entry::EntryType::Ssh {
+        "host"
+    } else {
+        "url"
+    };
     let fields = [
         ("service", Some(e.service.as_str()), c.service),
+        ("type", Some(kind), false),
         ("username", e.username.as_deref(), c.username),
         ("email", e.email.as_deref(), c.email),
         (secret_key, secret_val, c.password),
-        ("url", e.url.as_deref(), c.url),
+        (url_key, e.url.as_deref(), c.url),
+        ("port", e.port.as_deref(), false),
         ("tags", tags.as_deref(), c.tags),
         ("notes", e.notes.as_deref(), c.notes),
         ("created", Some(e.created.as_str()), false),
