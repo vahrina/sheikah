@@ -95,7 +95,6 @@ pub(crate) struct Censor {
     pub(crate) password: bool,
     pub(crate) url: bool,
     pub(crate) notes: bool,
-    #[serde(alias = "category")]
     pub(crate) tags: bool,
 }
 
