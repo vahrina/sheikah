@@ -14,8 +14,8 @@ fn add_with_all_args() {
         "add",
         "-s",
         "github",
-        "-c",
-        "misc",
+        "-t",
+        "git, Dev",
         "-u",
         "v",
         "-n",
@@ -24,7 +24,7 @@ fn add_with_all_args() {
     match cli.command {
         Some(Commands::Add(a)) => {
             assert_eq!(a.service.as_deref(), Some("github"));
-            assert_eq!(a.category.as_deref(), Some("misc"));
+            assert_eq!(a.tags.as_deref(), Some("git, Dev"));
             assert_eq!(a.user.as_deref(), Some("v"));
             assert_eq!(a.notes.as_deref(), Some("funny note"));
             assert!(!a.recovery);
@@ -54,7 +54,10 @@ fn actions_as_word_short_and_long() {
 fn combined_short_flags() {
     assert!(matches!(
         parse(&["sheikah", "-lb"]).command,
-        Some(Commands::List { boxed: true })
+        Some(Commands::List {
+            boxed: true,
+            tag: _
+        })
     ));
     match parse(&["sheikah", "-s", "github", "-up"]).command {
         Some(Commands::Show(a)) => {
@@ -63,8 +66,15 @@ fn combined_short_flags() {
         }
         _ => std::panic!("expected Show"),
     }
+    match parse(&["sheikah", "list", "--tag", "git", "--tag", "dev"]).command {
+        Some(Commands::List { tag, .. }) => assert_eq!(tag, ["git", "dev"]),
+        _ => std::panic!("expected List"),
+    }
     match parse(&["sheikah", "-f", "net"]).command {
-        Some(Commands::Find { query }) => assert_eq!(query.as_deref(), Some("net")),
+        Some(Commands::Find { query, tag }) => {
+            assert_eq!(query.as_deref(), Some("net"));
+            assert!(tag.is_empty());
+        }
         _ => std::panic!("expected Find"),
     }
     assert!(matches!(

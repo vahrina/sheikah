@@ -39,7 +39,9 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
 
     match cli.command {
         Some(Commands::Add(a)) => cmd_add(s, a),
-        Some(Commands::Edit { reference }) => cmd_edit(s, reference.as_deref().unwrap_or("")),
+        Some(Commands::Edit { reference, tags }) => {
+            cmd_edit(s, reference.as_deref().unwrap_or(""), tags.as_deref())
+        }
         Some(Commands::Delete { reference }) => cmd_delete(s, reference.as_deref().unwrap_or("")),
         Some(Commands::Config { slate }) => cmd_config(slate.as_deref().or(s)),
         Some(Commands::Init) => cmd_init(s),
@@ -58,8 +60,8 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
                 _ => bail!("usage: sheikah ssh [SSH_ARGS]... -- <REF>"),
             }
         }
-        Some(Commands::List { boxed }) => cmd_list(s, boxed),
-        Some(Commands::Find { query }) => cmd_find(s, query.as_deref().unwrap_or("")),
+        Some(Commands::List { boxed, tag }) => cmd_list(s, boxed, &tag),
+        Some(Commands::Find { query, tag }) => cmd_find(s, query.as_deref().unwrap_or(""), &tag),
         Some(Commands::Help { command }) => cmd_help(command.as_deref()),
         Some(Commands::Completions { action, dir }) => cmd_completions(action, dir.as_deref()),
         None => match cli.reference {
@@ -215,7 +217,13 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     let username = field(a.user, "username")?;
     let email = field(a.email, "email")?;
     let url = field(a.domain, "url")?;
-    let category = field(a.category, "category")?;
+    let tags = match a.tags {
+        Some(x) => entry::parse_tags(&x),
+        None if interactive => field(None, "tags")?
+            .map(|x| entry::parse_tags(&x))
+            .unwrap_or_default(),
+        None => Vec::new(),
+    };
     let notes = field(a.notes, "notes")?;
 
     let mut e = if a.recovery {
@@ -228,7 +236,7 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     e.username = username;
     e.email = email;
     e.url = url;
-    e.category = category;
+    e.tags = tags;
     e.notes = notes;
 
     let svc = e.service.clone();
@@ -238,9 +246,31 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
     Ok(())
 }
 
-fn cmd_list(name: Option<&str>, boxed: bool) -> Result<()> {
+fn normalize_tags(tag: &[String]) -> Vec<String> {
+    tag.iter()
+        .flat_map(|t| entry::parse_tags(t))
+        .fold(Vec::new(), |mut acc, t| {
+            if !acc.contains(&t) {
+                acc.push(t);
+            }
+            acc
+        })
+}
+
+fn with_tags(entries: &[Entry], tag: &[String]) -> Vec<usize> {
+    let required = normalize_tags(tag);
+    (0..entries.len())
+        .filter(|&i| entries[i].has_tags(&required))
+        .collect()
+}
+
+fn cmd_list(name: Option<&str>, boxed: bool, tag: &[String]) -> Result<()> {
     let s = unlock(name)?;
-    let idx = sorted(&s.entries, s.config.table.sort);
+    let allowed = with_tags(&s.entries, tag);
+    let idx: Vec<usize> = sorted(&s.entries, s.config.table.sort)
+        .into_iter()
+        .filter(|i| allowed.contains(i))
+        .collect();
     ui::table(&s.entries, &idx, &s.config, boxed);
     Ok(())
 }
@@ -256,12 +286,20 @@ fn mark_used(s: &mut Slate, i: usize) {
     }
 }
 
-fn cmd_find(name: Option<&str>, q: &str) -> Result<()> {
+fn cmd_find(name: Option<&str>, q: &str, tag: &[String]) -> Result<()> {
     let mut s = unlock(name)?;
-    if s.entries.is_empty() {
-        bail!("slate is empty (add one with `sheikah add`)");
+    let allowed = with_tags(&s.entries, tag);
+    if allowed.is_empty() {
+        if tag.is_empty() {
+            bail!("slate is empty (add one with `sheikah add`)");
+        }
+        bail!("no entries match the given tag(s)");
     }
-    let i = ui::pick(&s.entries, &sorted(&s.entries, s.config.table.sort), q)?;
+    let order: Vec<usize> = sorted(&s.entries, s.config.table.sort)
+        .into_iter()
+        .filter(|i| allowed.contains(i))
+        .collect();
+    let i = ui::pick(&s.entries, &order, q)?;
     ui::detail(&s.entries[i], &s.config, &[]);
     mark_used(&mut s, i);
     Ok(())
@@ -269,8 +307,13 @@ fn cmd_find(name: Option<&str>, q: &str) -> Result<()> {
 
 fn cmd_show(name: Option<&str>, a: ShowArgs) -> Result<()> {
     let mut s = unlock(name)?;
-    let i = find_ref(
+    let allowed = with_tags(&s.entries, &a.tag);
+    if !a.tag.is_empty() && allowed.is_empty() {
+        bail!("no entries match the given tag(s)");
+    }
+    let i = find_ref_among(
         &s.entries,
+        &allowed,
         a.reference.as_deref().unwrap_or(""),
         s.config.table.sort,
     )?;
@@ -280,7 +323,7 @@ fn cmd_show(name: Option<&str>, a: ShowArgs) -> Result<()> {
         (a.email, "email"),
         (a.password, "password"),
         (a.url, "url"),
-        (a.category, "category"),
+        (a.tags, "tags"),
         (a.notes, "notes"),
     ]
     .into_iter()
@@ -324,7 +367,7 @@ fn cmd_ssh(name: Option<&str>, r: &str, args: &[String]) -> Result<()> {
     }
 }
 
-fn cmd_edit(name: Option<&str>, r: &str) -> Result<()> {
+fn cmd_edit(name: Option<&str>, r: &str, tags: Option<&str>) -> Result<()> {
     let mut s = unlock(name)?;
     let i = find_ref(&s.entries, r, s.config.table.sort)?;
     let e = &mut s.entries[i];
@@ -340,7 +383,10 @@ fn cmd_edit(name: Option<&str>, r: &str) -> Result<()> {
     edit_field("username", &mut e.username)?;
     edit_field("email", &mut e.email)?;
     edit_field("url", &mut e.url)?;
-    edit_field("category", &mut e.category)?;
+    match tags {
+        Some(t) => e.tags = entry::parse_tags(t),
+        None => edit_tags(&mut e.tags)?,
+    }
     edit_field("notes", &mut e.notes)?;
     if e.is_recovery() {
         if ui::confirm("replace recovery codes?")? {
@@ -363,6 +409,21 @@ fn edit_field(label: &str, cur: &mut Option<String>) -> Result<()> {
         None => {}
         Some("-") => *cur = None,
         Some(x) => *cur = Some(x.to_string()),
+    }
+    Ok(())
+}
+
+fn edit_tags(tags: &mut Vec<String>) -> Result<()> {
+    let cur = if tags.is_empty() {
+        "-".into()
+    } else {
+        tags.join(", ")
+    };
+    let shown = ui::edim(&format!("[{cur}]"));
+    match ui::prompt_opt(&format!("tags {shown}"))?.as_deref() {
+        None => {}
+        Some("-") => tags.clear(),
+        Some(x) => *tags = entry::parse_tags(x),
     }
     Ok(())
 }
@@ -598,26 +659,44 @@ pub(crate) fn filter(entries: &[Entry], query: &str, by: Sort) -> Vec<usize> {
 
 /// exact service name, then a unique substring match, otherwise fzf decides
 pub(crate) fn find_ref(entries: &[Entry], r: &str, by: Sort) -> Result<usize> {
-    if entries.is_empty() {
+    find_ref_among(entries, &(0..entries.len()).collect::<Vec<_>>(), r, by)
+}
+
+/// like `find_ref`, but only among `allowed` indices (e.g. after a `--tag` filter)
+pub(crate) fn find_ref_among(
+    entries: &[Entry],
+    allowed: &[usize],
+    r: &str,
+    by: Sort,
+) -> Result<usize> {
+    if entries.is_empty() || allowed.is_empty() {
         bail!("slate is empty (add one with `sheikah add`)");
     }
+    let order: Vec<usize> = sorted(entries, by)
+        .into_iter()
+        .filter(|i| allowed.contains(i))
+        .collect();
     if r.is_empty() {
-        return ui::pick(entries, &sorted(entries, by), "");
+        return ui::pick(entries, &order, "");
     }
 
-    let exact: Vec<usize> = sorted(entries, by)
-        .into_iter()
+    let exact: Vec<usize> = order
+        .iter()
+        .copied()
         .filter(|&i| entries[i].service.eq_ignore_ascii_case(r))
         .collect();
     let candidates = if exact.is_empty() {
         filter(entries, r, by)
+            .into_iter()
+            .filter(|i| allowed.contains(i))
+            .collect()
     } else {
         exact
     };
 
     match candidates.as_slice() {
         [one] => Ok(*one),
-        [] => ui::pick(entries, &sorted(entries, by), r),
+        [] => ui::pick(entries, &order, r),
         many => ui::pick(entries, many, ""),
     }
 }
@@ -626,19 +705,19 @@ pub(crate) fn find_ref(entries: &[Entry], r: &str, by: Sort) -> Result<usize> {
 mod tests {
     use super::*;
 
-    fn entry(service: &str, user: Option<&str>, category: Option<&str>) -> Entry {
+    fn entry(service: &str, user: Option<&str>, tags: &[&str]) -> Entry {
         let mut e = Entry::new(service.into(), "pw".into());
         e.username = user.map(Into::into);
-        e.category = category.map(Into::into);
+        e.tags = tags.iter().map(|t| (*t).into()).collect();
         e
     }
 
     fn sample() -> Vec<Entry> {
         vec![
-            entry("Proton", Some("me"), Some("mail")),
-            entry("github", Some("v"), Some("dev")),
-            entry("netflix", None, Some("series")),
-            entry("github", Some("alt"), Some("dev")),
+            entry("Proton", Some("me"), &["mail"]),
+            entry("github", Some("v"), &["dev"]),
+            entry("netflix", None, &["series"]),
+            entry("github", Some("alt"), &["dev"]),
         ]
     }
 

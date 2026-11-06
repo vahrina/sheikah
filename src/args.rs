@@ -56,6 +56,10 @@ pub(crate) enum Commands {
     Edit {
         #[arg(value_hint = ValueHint::Other)]
         reference: Option<String>,
+
+        /// comma-separated tags (git, dev)
+        #[arg(short = 't', long = "tags", value_name = "STR", value_hint = ValueHint::Other)]
+        tags: Option<String>,
     },
 
     /// delete an entry
@@ -97,14 +101,22 @@ pub(crate) enum Commands {
         /// draw the table inside a box
         #[arg(short)]
         boxed: bool,
+
+        /// only entries that have this tag (repeatable; all must match)
+        #[arg(long = "tag", value_name = "TAG", action = ArgAction::Append, value_hint = ValueHint::Other)]
+        tag: Vec<String>,
     },
 
     /// fuzzy pick an entry, optionally seeded with QUERY
     #[command(short_flag = 'f', disable_help_flag = true)]
     Find {
-        /// text to match against service, username & category
+        /// text to match against service, username & tags
         #[arg(value_hint = ValueHint::Other)]
         query: Option<String>,
+
+        /// only entries that have this tag (repeatable; all must match)
+        #[arg(long = "tag", value_name = "TAG", action = ArgAction::Append, value_hint = ValueHint::Other)]
+        tag: Vec<String>,
     },
 
     /// open the config with your preferred $EDITOR
@@ -169,9 +181,13 @@ pub(crate) struct ShowArgs {
     /// only the notes
     #[arg(short)]
     pub(crate) notes: bool,
-    /// only the category
-    #[arg(short)]
-    pub(crate) category: bool,
+    /// only the tags
+    #[arg(short = 't')]
+    pub(crate) tags: bool,
+
+    /// only entries that have this tag (repeatable; all must match)
+    #[arg(long = "tag", value_name = "TAG", action = ArgAction::Append, value_hint = ValueHint::Other)]
+    pub(crate) tag: Vec<String>,
 }
 
 #[derive(Args, Default)]
@@ -180,9 +196,9 @@ pub(crate) struct AddArgs {
     #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) service: Option<String>,
 
-    /// category (series, mail, ..)
-    #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
-    pub(crate) category: Option<String>,
+    /// comma-separated tags (git, dev)
+    #[arg(short = 't', long = "tags", value_name = "STR", value_hint = ValueHint::Other)]
+    pub(crate) tags: Option<String>,
 
     /// domain/url
     #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
