@@ -59,7 +59,7 @@ pub(crate) enum Commands {
         #[arg(value_hint = ValueHint::Other)]
         reference: Option<String>,
 
-        /// entry type (login, recovery, backup, ssh, custom)
+        /// entry type (login, recovery, ssh)
         #[arg(short = 'T', long = "type", value_name = "TYPE", value_parser = parse_type, value_hint = ValueHint::Other)]
         kind: Option<EntryType>,
 
@@ -202,7 +202,7 @@ pub(crate) struct AddArgs {
     #[arg(short, value_name = "STR", value_hint = ValueHint::Other)]
     pub(crate) service: Option<String>,
 
-    /// entry type (login, recovery, backup, ssh, custom)
+    /// entry type (login, recovery, ssh)
     #[arg(short = 'T', long = "type", value_name = "TYPE", value_parser = parse_type, value_hint = ValueHint::Other)]
     pub(crate) kind: Option<EntryType>,
 

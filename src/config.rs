@@ -203,7 +203,7 @@ pub(crate) const HELP: &str = "\
 #   name: 0x96f | ascendancy | black-metal | custom
 #   <role> overrides one role of the theme
 # ui
-#   verbose: false hides tips like \"(optional)\" & \"via <tool>, clears in <N>s\"
+#   verbose: false hides tips like \"(optional)\", type choices & \"via <tool>, clears in <N>s\"
 #   inspect_delete: show the entry before `delete` asks to confirm
 ";
 

@@ -36,8 +36,7 @@ fn add_with_all_args() {
     }
     for (args, want) in [
         (["sheikah", "add", "-T", "recovery"], EntryType::Recovery),
-        (["sheikah", "-a", "--type", "backup"], EntryType::Backup),
-        (["sheikah", "add", "-T", "ssh"], EntryType::Ssh),
+        (["sheikah", "-a", "--type", "ssh"], EntryType::Ssh),
     ] {
         match parse(&args).command {
             Some(Commands::Add(a)) => assert_eq!(a.kind, Some(want)),
@@ -47,6 +46,8 @@ fn add_with_all_args() {
     assert!(Cli::try_parse_from(["sheikah", "add", "-r"]).is_err());
     assert!(Cli::try_parse_from(["sheikah", "add", "--recovery"]).is_err());
     assert!(Cli::try_parse_from(["sheikah", "add", "-T", "api"]).is_err());
+    assert!(Cli::try_parse_from(["sheikah", "add", "-T", "backup"]).is_err());
+    assert!(Cli::try_parse_from(["sheikah", "add", "-T", "custom"]).is_err());
 }
 
 #[test]

@@ -250,22 +250,18 @@ impl Slate {
     pub(crate) fn load(path: PathBuf, pass: Zeroizing<String>) -> Result<Self> {
         let blob = fs::read(&path).with_context(|| format!("cannot read {}", path.display()))?;
         let (plain, legacy) = open(&pass, &blob)?;
-        let (config, mut entries) =
+        let (config, entries) =
             match serde_json::from_slice(&plain).context("slate contents are malformed")? {
                 Stored::Full { config, entries } => (*config, entries),
                 Stored::Legacy(entries) => (Config::default(), entries),
             };
-        let mut migrated = false;
-        for e in &mut entries {
-            migrated |= e.migrate_type();
-        }
         let slate = Slate {
             path,
             pass,
             config,
             entries,
         };
-        if legacy || migrated {
+        if legacy {
             slate.save()?;
         }
         Ok(slate)

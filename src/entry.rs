@@ -9,27 +9,29 @@ use std::{
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum EntryType {
-    Login,
-    Recovery,
-    Backup,
-    Ssh,
+    /// also accepts a stored `custom` from earlier slates
     #[default]
-    Custom,
+    #[serde(alias = "custom")]
+    Login,
+    /// also accepts a stored `backup` from earlier slates
+    #[serde(alias = "backup")]
+    Recovery,
+    Ssh,
 }
 
 impl EntryType {
+    pub(crate) const CHOICES: &str = "login | recovery | ssh";
+
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             EntryType::Login => "login",
             EntryType::Recovery => "recovery",
-            EntryType::Backup => "backup",
             EntryType::Ssh => "ssh",
-            EntryType::Custom => "custom",
         }
     }
 
     pub(crate) fn uses_recovery(self) -> bool {
-        matches!(self, EntryType::Recovery | EntryType::Backup)
+        matches!(self, EntryType::Recovery)
     }
 }
 
@@ -46,12 +48,8 @@ impl FromStr for EntryType {
         match s.trim().to_ascii_lowercase().as_str() {
             "login" => Ok(EntryType::Login),
             "recovery" => Ok(EntryType::Recovery),
-            "backup" => Ok(EntryType::Backup),
             "ssh" => Ok(EntryType::Ssh),
-            "custom" => Ok(EntryType::Custom),
-            other => Err(format!(
-                "unknown type '{other}' (login|recovery|backup|ssh|custom)"
-            )),
+            other => Err(format!("unknown type '{other}'")),
         }
     }
 }
@@ -59,9 +57,9 @@ impl FromStr for EntryType {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub(crate) struct Entry {
     pub(crate) service: String,
-    /// absent in older slates; filled with `custom` on load
+    /// missing on older slates; `custom` and `backup` load as `login` and `recovery`
     #[serde(default, rename = "type")]
-    pub(crate) kind: Option<EntryType>,
+    pub(crate) kind: EntryType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) username: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -103,7 +101,7 @@ impl Entry {
     }
 
     pub(crate) fn entry_type(&self) -> EntryType {
-        self.kind.unwrap_or(EntryType::Custom)
+        self.kind
     }
 
     pub(crate) fn is_recovery(&self) -> bool {
@@ -135,16 +133,6 @@ impl Entry {
         ];
         h.extend(self.tags.iter().map(String::as_str));
         h
-    }
-
-    /// fill missing `type` with `custom`; true when the on-disk shape needs a rewrite
-    pub(crate) fn migrate_type(&mut self) -> bool {
-        if self.kind.is_none() {
-            self.kind = Some(EntryType::Custom);
-            true
-        } else {
-            false
-        }
     }
 
     pub(crate) fn tags_display(&self) -> Option<String> {
@@ -229,24 +217,31 @@ mod tests {
         assert!(parse_tags("  , , ").is_empty());
     }
     #[test]
-    fn migrates_missing_type_to_custom() {
-        let mut e: Entry =
+    fn missing_and_retired_types_load() {
+        let old: Entry =
             serde_json::from_str(r#"{"service":"x","password":"pw","created":"","modified":""}"#)
                 .unwrap();
-        assert!(e.kind.is_none());
-        assert_eq!(e.entry_type(), EntryType::Custom);
-        assert!(e.migrate_type());
-        assert_eq!(e.kind, Some(EntryType::Custom));
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"type\":\"custom\""));
-        assert!(!e.migrate_type());
+        assert_eq!(old.kind, EntryType::Login);
+
+        let custom: Entry = serde_json::from_str(
+            r#"{"service":"x","password":"pw","type":"custom","created":"","modified":""}"#,
+        )
+        .unwrap();
+        assert_eq!(custom.kind, EntryType::Login);
+
+        let backup: Entry = serde_json::from_str(
+            r#"{"service":"x","password":"pw","type":"backup","created":"","modified":""}"#,
+        )
+        .unwrap();
+        assert_eq!(backup.kind, EntryType::Recovery);
     }
 
     #[test]
     fn entry_type_parses_builtins() {
         assert_eq!("login".parse::<EntryType>().unwrap(), EntryType::Login);
-        assert_eq!("backup".parse::<EntryType>().unwrap(), EntryType::Backup);
         assert_eq!("SSH".parse::<EntryType>().unwrap(), EntryType::Ssh);
+        assert!("backup".parse::<EntryType>().is_err());
+        assert!("custom".parse::<EntryType>().is_err());
         assert!("api".parse::<EntryType>().is_err());
     }
 }

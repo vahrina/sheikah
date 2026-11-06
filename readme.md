@@ -136,7 +136,7 @@ Usage: sheikah {add|-a} [OPTIONS]
 
 Options:
   -s <STR>            label for site/app (netflix, proton, ..)
-  -T, --type <TYPE>   login | recovery | backup | ssh | custom
+  -T, --type <TYPE>   login | recovery | ssh
   -t, --tags <STR>    comma-separated tags (git, dev)
   -P, --plain         disable colors (respects NO_COLOR)
   -d <STR>            domain/url (ssh host for type=ssh)
@@ -146,14 +146,15 @@ Options:
   -n <STR>            optional notes
 ```
 
-**types** (`-T` / `--type`; interactive `add` prompts when omitted, otherwise defaults to `custom`):
+**types** (`-T` / `--type`; interactive `add` prompts when omitted, otherwise defaults to `login`):
 
 | type | prompts |
 |---|---|
-| `login` | username, email, password |
-| `recovery` / `backup` | recovery codes only (replaces the old `-r` flag) |
+| `login` | username, email, url, tags, notes, then a password |
+| `recovery` | same fields as `login`, then recovery codes instead of a password (replaces `-r`) |
 | `ssh` | host, username, port, password |
-| `custom` | regular optional fields + password |
+
+with `ui.verbose = true` (the default), interactive `add` / `edit` print a dimmed `login | recovery | ssh` line before `type:`. `verbose = false` hides that line. a bad type only says `unknown type`.
 
 ### example usages
 
@@ -273,7 +274,7 @@ inspect_delete = true
     - `selection`
 
 **ui**:
-  - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
+  - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, the `login | recovery | ssh` type line, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
   - `inspect_delete` (bool): `delete` shows the entry before the `[y/N]` confirmation dialogue; `false` skips straight to the confirm
 
 ## shell completion
