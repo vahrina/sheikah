@@ -280,8 +280,6 @@ fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
             fill_common(&mut e, &a, interactive)?
         }
         entry::EntryType::Ssh => {
-            // host lives in `url`. future option: load the key into ssh-agent
-            ui::tip("ssh-agent key loading is not implemented yet");
             e.url = take_or_prompt(a.domain, "host", true)?;
             e.username = take_or_prompt(a.user, "username", true)?;
             e.port = take_or_prompt(None, "port", true)?;
