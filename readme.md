@@ -20,7 +20,7 @@ what's "_sheikah_"? what's a "_slate_"? what is _this_ & _why_?
 
 ## installation
 
-### installer
+### <ins>installer</ins>
 
 downloads the right release archive for your machine into `~/.local/bin` - rerun to update
 
@@ -35,7 +35,7 @@ bash install.sh
 
 > don't forget to press <kbd>q</kbd> to exit the inspection
 
-### manual
+### <ins>manual</ins>
 
 grab `sheikah-vX.Y.Z-<arch>.tar.gz` from [releases](https://github.com/vahrina/sheikah/releases), then:
 
@@ -44,7 +44,7 @@ tar -xzf sheikah*.tar.gz
 install -m 755 sheikah ~/.local/bin/
 ```
 
-### source
+### <ins>source</ins>
 
 needs a rust toolchain & preferably [`just`](https://github.com/casey/just#installation)
 
@@ -71,7 +71,7 @@ to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag`
 
 ## quickstart
 
-### initializing a new slate
+### <ins>initializing a new slate</ins>
 
 create your very first, encrypted file at `~/.sheikah/eye`
 
@@ -81,7 +81,7 @@ sheikah init
 
 > optionally, you can specify a new name with the `-S` flag; more information about your slate can be found in [multiple slates](#multiple-slates)
 
-### basic operations
+### <ins>basic operations</ins>
 
 ```console
 $ sheikah add
@@ -152,17 +152,7 @@ Options:
   -n <STR>            optional notes
 ```
 
-**types** (`-T` / `--type`; interactive `add` prompts when omitted, otherwise defaults to `login`):
-
-| type | prompts |
-|---|---|
-| `login` | username, email, url, tags, notes, then a password |
-| `recovery` | same fields as `login`, then recovery codes instead of a password (replaces `-r`) |
-| `ssh` | host, username, port, password |
-
-with `ui.verbose = true` (the default), interactive `add` / `edit` print a dimmed `login | recovery | ssh` line before `type:`. `verbose = false` hides that line. a bad type only says `unknown type`.
-
-### example usages
+### <ins>example usages</ins>
 
 every action works as a word or a single-dash flag
 
@@ -187,9 +177,9 @@ $ sheikah -c github
 
 - `-s` corresponds to `show` at top level, but as sub-argument to `add` becomes the site label
 - `-b` corresponds to `backup` at top level, but as sub-argument to `list` becomes `--boxed`
-- `ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS` pointing back at sheikah (needs OpenSSH 8.4+). the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts & host key questions go to your terminal. any other arguments supplied to `ssh` will work as per usual
+- `ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS`, whereas the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts & host key questions go to your terminal. any other arguments supplied to `ssh` will work as per usual
 
-### multiple slates
+### <ins>multiple slates</ins>
 
 `-S` is a slate name under `~/.sheikah/` or a path, e.g. `sheikah -S work init`. `init` without `-S` creates `~/.sheikah/eye`
 
@@ -198,7 +188,7 @@ $ sheikah -c github
 - with several slates & no `-S`, fzf asks which one
 - `export SHEIKAH_SLATE=work` in your shell rc makes `work` the default, `-S` still overrides it
 
-### configuration
+### <ins>configuration</ins>
 
 sheikah ships a variety of personalized options via `sheikah -C`/`config`, unlocks the slate, dumps a commented toml into a short-lived `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & lets you edit it via your preferred `$VISUAL`/`$EDITOR`. each slate carries its own (encrypted) configuration - there is no shared `~/.sheikah/config.toml`. below follows a customized version of the default template:
 
@@ -236,7 +226,7 @@ inspect_delete = true
 
 > an invalid configuration file keeps the changes untouched as you exit
 
-**censor**:
+<ins>**censor**</ins>:
   - `glyph` (str): shown instead of a hidden field
   - `<field>` (bool): when `true`, that field is replaced by `glyph` in `list` & `show` - available fields:
     - `service`
@@ -247,9 +237,9 @@ inspect_delete = true
     - `notes`
     - `tags`
 
-> explicit `show -p` / `-u` / .. always reveals the specified field
+> explicit `show -p`/`-u`/.. always reveals the specified field
 
-**table**:
+<ins>**table**</ins>:
   - `index` (bool): leading `#` column counting rows from 1 in `list`
   - `sort` (str): order of `list` & `find`
     - `alphabetical`: service, then username
@@ -267,13 +257,13 @@ inspect_delete = true
   | `heavy` | ┏┳┓, ┣╋┫, ┗┻┛, ━, ┃ |
   | `dashed` | ┌┬┐, ├┼┤, └┴┘, ╌, ╎ |
 
-**clipboard**:
+<ins>**clipboard**</ins>:
   - `clear` (int): seconds until a copied secret is wiped after `-c` / `copy`. `0` disables this behaviour. the used clipboard tool is covered in [clipboard](#clipboard)
 
-**session**:
+<ins>**session**</ins>:
   - `cache` (int): seconds to remember the master password after a successful unlock. stored as a `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & wiped on expiry, failed unlock, `passwd`, or `backup` restore. `0` disables caching
 
-**theme**:
+<ins>**theme**</ins>:
   - `name` (str): base16 palette. built-ins & custom schemes in: [themes](#themes)
   - `<role>` (str, optional): override one role & leave the rest alone - available roles:
     - `header`
@@ -285,19 +275,19 @@ inspect_delete = true
     - `accent`
     - `error`
     - `selection`
-  - **accepted values for given roles**:
+  - <ins>**accepted values for given roles**</ins>:
     - **name convention**: black red green yellow blue magenta cyan white (plus `bright-*`)
     - **base convention**: `baseXX` (see [here](https://github.com/chriskempson/base16/blob/main/styling.md))
     - **rgb**: `#rrggbb`
     - **default**: terminal's own foreground
 
-**ui**:
+<ins>**ui**</ins>:
   - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, the `login | recovery | ssh` type line, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
   - `inspect_delete` (bool): `delete` shows the entry before the `[y/N]` confirmation dialogue; `false` skips straight to the confirm
 
 ## shell completion
 
-### set up completions for zsh
+### <ins>set up completions for zsh</ins>
 
 > [zsh](https://www.zsh.org/) only for now, will commence with [bash](https://www.gnu.org/software/bash/)/[fish](https://fishshell.com/) once this project gains momentum
 
@@ -326,7 +316,7 @@ exec zsh
 
 rerun `sheikah completions update` after upgrading the binary
 
-### troubleshooting shell completion
+### <ins>troubleshooting shell completion</ins>
 
 **q**: my shell doesn't display completions after following the [steps above](#shell-completion)
 
@@ -367,7 +357,7 @@ built in are:
 
 any other scheme can be imported from the [tinted gallery](https://tinted-theming.github.io/tinted-gallery/) (find the yaml files here: [tinted-theming/schemes](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)) & saved as `~/.sheikah/themes/<name>.yaml`. don't forget to also set `name = "<name>"` in the [config](#configuration)! a file with a built-in name replaces it & `base16-` prefixes from the gallery are ignored
 
-### customizing the appearance
+### <ins>customizing the appearance</ins>
 
 every other key overrides one role & leaves the rest of the theme alone, e.g. setting your theme to `nord` with your own border color:
 
