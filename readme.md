@@ -1,5 +1,5 @@
 <p align="center">
-  a quiet cli password manager with one encrypted file, keeping your credentials safe & locally available - portable & accissible on the fly!
+  a quiet cli password manager with one encrypted file, keeping your credentials safe & locally available - portable & accessible on the fly!
 </p>
 
 <p align="center">
@@ -10,6 +10,14 @@
 
 > disclosure: as i've become more busy & lost motivation with this project, i decided to hand it over to the clanker - don't expect quality non-ai content since [`3425c13`](https://github.com/vahrina/sheikah/commit/3425c1352afd90fcb69f5ef7d000eaab1c5e1835)
 
+## about - for the curious
+
+what's "_sheikah_"? what's a "_slate_"? what is _this_ & _why_?
+
+- this analogy comes from the [sheikah race](https://zelda.fandom.com/wiki/sheikah) in the [zelda franchise](https://zelda.fandom.com/wiki/The_Legend_of_Zelda_(series)), not specifically tied to a single game in the series. they are a mysterious, hidden clan that protect the [royal family](https://zelda.fandom.com/wiki/Royal_Family_of_Hyrule) - likewise protecting your credentials in secrecy
+- a slate refers to the [sheikah slate](https://zelda.fandom.com/wiki/Sheikah_Slate), made for the [chosen one](https://zelda.fandom.com/wiki/Link), which contains all necessary data to complete the game start to finish - likewise a slate containing all the data you provide
+- the reason i came up with this was for one, not liking the gui feel that every other password manager i've tried so far provides. the other reason being to not leave the shell anymore, as my previous approach was quite tedious with a usb
+
 ## installation
 
 ### installer
@@ -17,17 +25,22 @@
 downloads the right release archive for your machine into `~/.local/bin` - rerun to update
 
 ```sh
+# inspect the installer first
 curl -fsSL https://raw.githubusercontent.com/vahrina/sheikah/main/install.sh -o install.sh \
   && less $_
+
+# if everything looks fine to you, proceed
 bash install.sh
 ```
+
+> don't forget to press <kbd>q</kbd> to exit the inspection
 
 ### manual
 
 grab `sheikah-vX.Y.Z-<arch>.tar.gz` from [releases](https://github.com/vahrina/sheikah/releases), then:
 
 ```sh
-tar -xzf sheikah-v0.2.0-x86_64.tar.gz
+tar -xzf sheikah*.tar.gz
 install -m 755 sheikah ~/.local/bin/
 ```
 
@@ -52,45 +65,40 @@ to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag`
 ## dependencies
 
 - [`fzf`](https://github.com/junegunn/fzf) (required)
-- a clipboard tool, (optional, see [clipboard](#clipboard))
-- [`just`](https://github.com/casey/just#installation) (optional, from-source only)
+- [`OpenSSH 8.4+`](https://www.openssh.org/txt/release-8.4) (optional)
+- a [clipboard](#clipboard) tool (optional but recommended)
+- [`just`](https://github.com/casey/just#installation) (optional, recommended when compiling from source)
 
-## get started
+## quickstart
 
 ### initializing a new slate
 
-a slate is the zelda-derived equivalent of a file where your secrets will be stored in - likewise the name "sheikah"
+create your very first, encrypted file at `~/.sheikah/eye`
 
 ```sh
-$ sheikah init
+sheikah init
 ```
 
-> optionally, you can specify a new name with the `-S` flag
+> optionally, you can specify a new name with the `-S` flag; more information about your slate can be found in [multiple slates](#multiple-slates)
 
 ### basic operations
 
-adding, editing, deleting & viewing follow a similar pattern
-
 ```console
-$ sheikah add # or via arguments, see `sheikah help add`
-$ sheikah edit cloudflare
+$ sheikah add
+  # follow an interactive prompt, or via arguments
 $ sheikah show gentoo
-# yadeyadeyade
+  # display all available information about the gentoo entry
 ```
 
-see [usage](#usage) for more in-depth examples
-
-### passwords, security & misc
-
-passwords will **always** have an interactive prompt to ensure security via [`rpassword`](https://crates.io/crates/rpassword) - read more about the security aspect under [crypto](#crypto)
+> see [reference](#reference) for more in-depth examples
 
 also make sure all [requirements](#dependencies) are satisfied after initializing a new slate:
 
-```md
+```sh
 sheikah doctor
 ```
 
-## usage
+## reference
 
 ```console
 $ sheikah
@@ -161,27 +169,27 @@ with `ui.verbose = true` (the default), interactive `add` / `edit` print a dimme
 every action works as a word or a single-dash flag
 
 ```console
-$ sheikah add -s 'csfloat' -T login -t 'trading, market'
-  # login entry tagged trading, market
-$ sheikah add -s 'github-codes' -T recovery
-  # stores recovery codes (replaces the old `-r` flag)
+$ sheikah add -s 'csfloat' -t 'trading, market'
+  # adds a new service with tags
+$ sheikah -lb
+  # list all entries inside a box (`-b` here = boxed, not backup)
 $ sheikah list --tag trading
-  # only entries tagged `trading`
+  # list only entries that are tagged with `trading`
 $ sheikah github
   # will look for an entry 'github', picker will pop up if there are multiple
 $ sheikah -s github -p | docker login -u v --password-stdin
-  # print only the password of 'github', useful for pipes
+  # print only the password (-p) of 'github' & hand it to docker
 $ sheikah ssh pi -- rpi
   # regular ssh workflow, entry after `--` supplies the passphrase
-$ sheikah ssh bandit0@bandit@bandit.labs.overthewire.org -p 2220 -- bandit
-  # optionally, add your ssh args, e.g. port
 $ sheikah -c github
   # copy the password into your clipboard, clears after a period of time
-$ sheikah -lb
-  # list all entries inside a box
 ```
 
-`ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS` pointing back at sheikah (needs OpenSSH 8.4+). the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts and host key questions go to your terminal
+**several notes to take care of**:
+
+- `-s` corresponds to `show` at top level, but as sub-argument to `add` becomes the site label
+- `-b` corresponds to `backup` at top level, but as sub-argument to `list` becomes `--boxed`
+- `ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS` pointing back at sheikah (needs OpenSSH 8.4+). the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts & host key questions go to your terminal. any other arguments supplied to `ssh` will work as per usual
 
 ### multiple slates
 
@@ -194,7 +202,7 @@ $ sheikah -lb
 
 ### configuration
 
-sheikah ships a variety of personalized options via `sheikah -C`/`config`, unlocks the slate, dumps a commented toml into a short-lived `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & lets you edit it via your preferred `$VISUAL`/`$EDITOR`. each slate carries its own (encrypted) configuration - there is no shared `~/.sheikah/config.toml`
+sheikah ships a variety of personalized options via `sheikah -C`/`config`, unlocks the slate, dumps a commented toml into a short-lived `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & lets you edit it via your preferred `$VISUAL`/`$EDITOR`. each slate carries its own (encrypted) configuration - there is no shared `~/.sheikah/config.toml`. below follows a customized version of the default template:
 
 ```toml
 [censor]
@@ -214,7 +222,7 @@ boxed = true
 style = "ascii"
 
 [clipboard]
-clear = 15
+clear = 30
 
 [theme]
 name = "0x96f"
@@ -230,14 +238,15 @@ inspect_delete = true
 **censor**:
   - `glyph` (str): shown instead of a hidden field
   - `<field>` (bool): when `true`, that field is replaced by `glyph` in `list` & `show` - available fields:
-  - `service`
-  - `username`
-  - `email`
-  - `password`
-  - `url`
-  - `notes`
-  - `tags`
-  explicit `show -p` / `-u` / .. always reveals the specified field
+    - `service`
+    - `username`
+    - `email`
+    - `password`
+    - `url`
+    - `notes`
+    - `tags`
+
+> explicit `show -p` / `-u` / .. always reveals the specified field
 
 **table**:
   - `index` (bool): leading `#` column counting rows from 1 in `list`
@@ -272,6 +281,11 @@ inspect_delete = true
     - `accent`
     - `error`
     - `selection`
+  - **accepted values for given roles**:
+    - **name convention**: black red green yellow blue magenta cyan white (plus `bright-*`)
+    - **base convention**: `baseXX` (see [here](https://github.com/chriskempson/base16/blob/main/styling.md))
+    - **rgb**: `#rrggbb`
+    - **default**: terminal's own foreground
 
 **ui**:
   - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, the `login | recovery | ssh` type line, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
@@ -304,11 +318,11 @@ if your `~/.zshrc` already runs `compinit` (oh-my-zsh, zinit, ..), only add the 
 exec zsh
 ```
 
-> note that a mere `source ~/.zshrc` is not sufficient enough
+> note that a mere `source ~/.zshrc` is not sufficient
 
 rerun `sheikah completions update` after upgrading the binary
 
-### troubleshooting [shell completion](#shell-completion)
+### troubleshooting shell completion
 
 **q**: my shell doesn't display completions after following the [steps above](#shell-completion)
 
@@ -342,7 +356,7 @@ if none of the above worked out for you, feel free to [open an issue](https://gi
 colors come from [base16](https://tinted-theming.github.io/tinted-gallery/) schemes, set under `[theme]` in `sheikah -C`
 
 built in are:
-- `0x96f`,
+- `0x96f`
 - `ascendancy`
 - `black-metal`
 - `custom` keeps the plain bold/dim look
@@ -359,30 +373,13 @@ name = "nord"
 border = "red"
 ```
 
-### accepted roles & values
-
-**roles**:
-- `header`
-- `border`
-- `text`
-- `muted`
-- `key`
-- `secret`
-- `accent`
-- `error`
-- `selection` (fzf's current line)
-
-> truecolor is used when `COLORTERM` is `truecolor`/`24bit`, otherwise the nearest of 256 colors
-
-**values**:
-- **name convetion**: black red green yellow blue magenta cyan white (plus `bright-*`)
-- **base convention**: `baseXX` (see [here](https://github.com/chriskempson/base16/blob/main/styling.md))
-- **rgb**: `#rrggbb`
-- **default**: terminal's own foreground
+[`truecolor`](https://github.com/termstandard/colors/blob/master/README.md) is used when `COLORTERM` is `truecolor`/`24bit`, otherwise the nearest of 256 colors
 
 ## clipboard
 
-`-c` uses the first tool that works, & a detached `sh` empties the clipboard 45s later
+`sheikah -c` uses the first tool that works, & a detached `sh` empties the clipboard after 45 seconds by default - see [configuration](#configuration) to change the duration
+
+**available clipboards**:
 
 | order | tool | when |
 |---|---|---|
@@ -392,15 +389,16 @@ border = "red"
 | 4 | `clip.exe` | wsl |
 | 5 | `pbcopy` | macos |
 
-change the delay with `clear` under `[clipboard]` in `sheikah -C`, whereas `0` disables this behaviour
 
 ## storage
 
 - `~/.sheikah/` is created with minimal owner permissions (`0700`), slate(s) with stricter permissions (`0600`)
-- `init` optionally runs `sudo chattr +a` on the dir ([ref](https://unix.stackexchange.com/questions/269020/what-is-the-effect-of-chattr-a-on-a-directory)), so files in it cannot be deleted or renamed. saves therefore overwrite in place, after copying the previous version to a backup slot
+- `init` optionally runs `sudo chattr +a` on the dir ([ref](https://unix.stackexchange.com/questions/269020/what-is-the-effect-of-chattr-a-on-a-directory)), so files in it cannot be deleted or renamed. saves therefore overwrite in place, after copying the previous version to a backup slot. this behaviour only works on certain filesystems (ext4, xfs, btrfs, ...)
 - backups rotate through `<slate>.1.bak` .. `<slate>.5.bak`, the oldest slot gets overwritten (never deleted). `sheikah backup` restores one; a backup keeps the master password it was saved with
 
-## crypto
+## crypto, security & passwords
+
+the crypto aspect of this project follows this pattern:
 
 ```
 [salt (16B)][nonce (12B)][ciphertext + gcm tag (16B)]
@@ -409,4 +407,6 @@ change the delay with `clear` under `[clipboard]` in `sheikah -C`, whereas `0` d
 - key: argon2id(master password, salt) -> 256 bit, `m = 64 MiB, t = 3, p = 1`
 - cipher: aes-256-gcm over the json-serialized entries
 - every save draws a fresh random salt & nonce
-- the kdf params are not stored in the file, changing them breaks it (duh..?)
+- changing kdf params breaks existing slates, so be careful!
+
+passwords will **always** have an interactive prompt to ensure security via [`rpassword`](https://crates.io/crates/rpassword)
