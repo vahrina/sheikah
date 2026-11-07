@@ -263,7 +263,7 @@ inspect_delete = true
   - `clear` (int): seconds until a copied secret is wiped after `-c` / `copy`. `0` disables this behaviour. the used clipboard tool is covered in [clipboard](#clipboard)
 
 **session**:
-  - `cache` (int): seconds to remember the master password after a successful unlock (default `60`). stored as a `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & wiped on expiry, failed unlock, `passwd`, or `backup` restore. `0` disables caching
+  - `cache` (int): seconds to remember the master password after a successful unlock. stored as a `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & wiped on expiry, failed unlock, `passwd`, or `backup` restore. `0` disables caching
 
 **theme**:
   - `name` (str): base16 palette. built-ins & custom schemes in: [themes](#themes)

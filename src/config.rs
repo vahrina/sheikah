@@ -214,7 +214,7 @@ pub(crate) const HELP: &str = "\
 # clipboard
 #   clear: seconds until a copied secret is wiped, 0 to disable
 # session
-#   cache: seconds to remember the master password, 0 to disable (default 60)
+#   cache: seconds to remember the master password, 0 to disable
 # theme
 #   name: 0x96f | ascendancy | black-metal | custom
 #   <role> overrides one role of the theme
