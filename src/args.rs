@@ -19,10 +19,6 @@ pub(crate) struct Cli {
     #[arg(value_name = "REF", value_hint = ValueHint::Other)]
     pub(crate) reference: Option<String>,
 
-    /// disable colors (respects NO_COLOR)
-    #[arg(short = 'P', long = "plain", global = true)]
-    pub(crate) plain: bool,
-
     /// slate name (or unique prefix) or path/to/slate
     #[arg(
         short = 'S',

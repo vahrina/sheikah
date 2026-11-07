@@ -21,7 +21,7 @@ fn main() {
         askpass::respond(&dir);
     }
     let cli = args::Cli::parse();
-    ui::init_color(cli.plain);
+    ui::init_color();
 
     if let Err(e) = commands::run(cli) {
         eprintln!("{} {e:#}", ui::eerror("error:"));

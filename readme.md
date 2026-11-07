@@ -128,7 +128,6 @@ Arguments:
 
 Options:
   -V, --version
-  -P, --plain         disable colors (respects NO_COLOR)
   -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
 ```
 
@@ -146,7 +145,6 @@ Options:
   -s <STR>            label for site/app (netflix, proton, ..)
   -T, --type <TYPE>   login | recovery | ssh
   -t, --tags <STR>    comma-separated tags (git, dev)
-  -P, --plain         disable colors (respects NO_COLOR)
   -d <STR>            domain/url (ssh host for type=ssh)
   -S, --slate <NAME>  slate name (or unique prefix) or path/to/slate [env: SHEIKAH_SLATE=]
   -e <STR>            email

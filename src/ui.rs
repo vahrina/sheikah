@@ -24,10 +24,9 @@ static TRUECOLOR: AtomicBool = AtomicBool::new(false);
 static VERBOSE: AtomicBool = AtomicBool::new(true);
 static STYLES: LazyLock<RwLock<Styles>> = LazyLock::new(|| RwLock::new(Styles::default()));
 
-/// off for pipes, `NO_COLOR`, `TERM=dumb` and `-P`; 256 colors unless `COLORTERM` says truecolor
-pub(crate) fn init_color(plain: bool) {
-    let ok = !plain
-        && var_os("NO_COLOR").is_none_or(|v| v.is_empty())
+/// off for pipes, `NO_COLOR`, and `TERM=dumb`; 256 colors unless `COLORTERM` says truecolor
+pub(crate) fn init_color() {
+    let ok = var_os("NO_COLOR").is_none_or(|v| v.is_empty())
         && var_os("TERM").is_none_or(|t| t != "dumb");
     OUT.store(ok && io::stdout().is_terminal(), Relaxed);
     ERR.store(ok && io::stderr().is_terminal(), Relaxed);
