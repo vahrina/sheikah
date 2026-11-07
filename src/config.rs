@@ -7,8 +7,22 @@ pub(crate) struct Config {
     pub(crate) censor: Censor,
     pub(crate) table: Table,
     pub(crate) clipboard: Clipboard,
+    pub(crate) session: Session,
     pub(crate) theme: Theme,
     pub(crate) ui: Ui,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(default)]
+pub(crate) struct Session {
+    /// seconds to remember the master password after unlock, 0 disables
+    pub(crate) cache: u32,
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Session { cache: 60 }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -199,6 +213,8 @@ pub(crate) const HELP: &str = "\
 #   style (boxed = true): ascii | square | rounded | double | heavy | dashed
 # clipboard
 #   clear: seconds until a copied secret is wiped, 0 to disable
+# session
+#   cache: seconds to remember the master password, 0 to disable (default 60)
 # theme
 #   name: 0x96f | ascendancy | black-metal | custom
 #   <role> overrides one role of the theme
@@ -218,13 +234,18 @@ mod tests {
         assert_eq!(c.censor.glyph, "***");
         assert_eq!(c.table.sort, Sort::Alphabetical);
         assert_eq!(c.clipboard.clear, 45);
+        assert_eq!(c.session.cache, 60);
         assert!(c.ui.verbose && c.ui.inspect_delete);
         let c: Config = toml::from_str("[ui]\nverbose = false").unwrap();
         assert!(!c.ui.verbose && c.ui.inspect_delete);
 
-        let c: Config = toml::from_str("[table]\nsort = \"used\"\n[clipboard]\nclear = 0").unwrap();
+        let c: Config = toml::from_str(
+            "[table]\nsort = \"used\"\n[clipboard]\nclear = 0\n[session]\ncache = 0",
+        )
+        .unwrap();
         assert_eq!(c.table.sort, Sort::Used);
         assert_eq!(c.clipboard.clear, 0);
+        assert_eq!(c.session.cache, 0);
 
         let c: Config = toml::from_str("[table]\nstyle = \"rounded\"").unwrap();
         assert_eq!(c.table.style, BoxStyle::Rounded);
