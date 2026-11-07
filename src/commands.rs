@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, bail};
 use clap::CommandFactory;
+use secrecy::ExposeSecret;
 use std::{
     cmp::Reverse,
     env::var_os,
@@ -14,7 +15,7 @@ use zeroize::Zeroizing;
 
 use crate::{
     args::{AddArgs, Cli, Commands, CompletionAction, ShowArgs},
-    askpass, clip,
+    askpass, cache, clip,
     config::{self, Config, Sort},
     entry::{self, Entry},
     slate::{self, Slate},
@@ -154,12 +155,38 @@ pub(crate) fn runtime_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("/dev/shm"))
 }
 
+fn remember(path: &Path, pass: &secrecy::SecretString, secs: u32) {
+    if let Err(e) = cache::store(path, pass, secs) {
+        ui::note(&format!("could not cache master password: {e:#}"));
+    }
+}
+
 fn unlock(name: Option<&str>) -> Result<Slate> {
     let path = slate::resolve(name)?;
-    let pass = ui::secret("master password")?;
-    let s = Slate::load(path, pass)?;
+    let cached = cache::load(&path);
+    let used_cache = cached.is_some();
+    let pass = match cached {
+        Some(p) => Zeroizing::new(p.expose_secret().to_owned()),
+        None => ui::secret("master password")?,
+    };
+    let secret = secrecy::SecretString::from(pass.as_str().to_owned());
+    let s = match Slate::load(path.clone(), pass) {
+        Ok(s) => s,
+        Err(_) if used_cache => {
+            cache::clear(&path);
+            let pass = ui::secret("master password")?;
+            let secret = secrecy::SecretString::from(pass.as_str().to_owned());
+            let s = Slate::load(path.clone(), pass)?;
+            ui::set_theme(&s.config.theme);
+            ui::set_verbose(s.config.ui.verbose);
+            remember(&path, &secret, s.config.session.cache);
+            return Ok(s);
+        }
+        Err(e) => return Err(e),
+    };
     ui::set_theme(&s.config.theme);
     ui::set_verbose(s.config.ui.verbose);
+    remember(&path, &secret, s.config.session.cache);
     Ok(s)
 }
 
@@ -471,17 +498,23 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
         return Ok(());
     }
     ui::note("the backup keeps the master password it was saved with");
+    // never use the session cache: a backup may still hold an older master password
     let pass = ui::secret("master password")?;
     slate::restore(&path, bak, &pass)?;
+    cache::clear(&path);
     ui::say(&format!("restored {}", tilde(bak)));
     Ok(())
 }
 
 fn cmd_passwd(name: Option<&str>) -> Result<()> {
     let mut s = unlock(name)?;
+    let path = s.path.clone();
     let new = ui::new_secret("new master password")?;
+    let secret = secrecy::SecretString::from(new.as_str().to_owned());
+    let ttl = s.config.session.cache;
     s.rekey(new)?;
-    ui::say(&format!("master password changed for {}", tilde(&s.path)));
+    remember(&path, &secret, ttl);
+    ui::say(&format!("master password changed for {}", tilde(&path)));
     Ok(())
 }
 

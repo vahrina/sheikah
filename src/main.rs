@@ -2,6 +2,7 @@ use clap::Parser;
 
 mod args;
 mod askpass;
+mod cache;
 mod clip;
 mod commands;
 mod config;
