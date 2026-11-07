@@ -201,12 +201,9 @@ pub(crate) fn secret(text: &str) -> Result<Zeroizing<String>> {
     }
 }
 
-/// asks twice, rejects empty or mismatching input
+/// asks twice, rejects mismatching input (empty allowed)
 pub(crate) fn new_secret(text: &str) -> Result<Zeroizing<String>> {
     let a = secret(text)?;
-    if a.is_empty() {
-        bail!("{text} must not be empty");
-    }
     let b = secret(&format!("repeat {text}"))?;
     if *a != *b {
         bail!("{text}s do not match");

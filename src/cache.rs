@@ -42,10 +42,6 @@ pub(crate) fn load(slate: &Path) -> Option<SecretString> {
         return None;
     }
     let pass = pass.trim_end_matches('\n');
-    if pass.is_empty() {
-        clear(slate);
-        return None;
-    }
     Some(SecretString::from(pass.to_owned()))
 }
 
