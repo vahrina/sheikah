@@ -44,6 +44,16 @@ tar -xzf sheikah*.tar.gz
 install -m 755 sheikah ~/.local/bin/
 ```
 
+### <ins>cargo</ins>
+
+needs a rust toolchain (1.98+)
+
+```sh
+cargo install sheikah --locked
+```
+
+rerun with `--force` to reinstall the same version; a newer version release upgrades on its own
+
 ### <ins>source</ins>
 
 needs a rust toolchain & preferably [`just`](https://github.com/casey/just#installation)
