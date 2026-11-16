@@ -13,7 +13,7 @@ mod theme;
 mod ui;
 
 #[cfg(test)]
-mod cli_tests;
+mod tests;
 
 fn main() {
     signal::install();
