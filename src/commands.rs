@@ -305,47 +305,45 @@ fn add_from_form(a: &AddArgs) -> Result<Entry> {
     let kind_of = |f: &[ui::Field]| {
         fixed.map_or_else(|| form_type(ui::value(f, "type"), Default::default()), Ok)
     };
-    loop {
-        ui::form(&mut f, |f| {
+    ui::form(
+        &mut f,
+        |f| {
             let mut keys = vec!["service"];
             if fixed.is_none() {
                 keys.push("type");
             }
             keys.extend(type_keys(kind_of(f).unwrap_or_default()));
             keys
-        })?;
-        let kind = match kind_of(&f) {
-            Ok(k) => k,
-            Err(e) => {
-                ui::note(&e);
-                continue;
+        },
+        |f| {
+            if non_empty(ui::value(f, "service")).is_none() {
+                Some(("service", "service must not be empty".into()))
+            } else {
+                kind_of(f).err().map(|m| ("type", m))
             }
-        };
-        let Some(service) = non_empty(ui::value(&f, "service")) else {
-            ui::note("service must not be empty");
-            continue;
-        };
-        let v = |k| non_empty(ui::value(&f, k));
-        let mut e = Entry::new(service, String::new());
-        e.kind = kind;
-        match kind {
-            entry::EntryType::Login | entry::EntryType::Recovery => {
-                e.username = v("username");
-                e.email = v("email");
-                e.url = v("url");
-                e.tags = entry::parse_tags(ui::value(&f, "tags"));
-                e.notes = v("notes");
-            }
-            entry::EntryType::Ssh => {
-                e.url = v("host");
-                e.username = v("username");
-                e.port = v("port");
-                e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
-                e.notes = a.notes.clone().filter(|n| !n.is_empty());
-            }
+        },
+    )?;
+    let v = |k| non_empty(ui::value(&f, k));
+    let kind = kind_of(&f).unwrap_or_default();
+    let mut e = Entry::new(v("service").unwrap_or_default(), String::new());
+    e.kind = kind;
+    match kind {
+        entry::EntryType::Login | entry::EntryType::Recovery => {
+            e.username = v("username");
+            e.email = v("email");
+            e.url = v("url");
+            e.tags = entry::parse_tags(ui::value(&f, "tags"));
+            e.notes = v("notes");
         }
-        return Ok(e);
+        entry::EntryType::Ssh => {
+            e.url = v("host");
+            e.username = v("username");
+            e.port = v("port");
+            e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
+            e.notes = a.notes.clone().filter(|n| !n.is_empty());
+        }
     }
+    Ok(e)
 }
 
 fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
@@ -516,8 +514,9 @@ fn cmd_edit(
         ui::Field::new("tags", lbl("tags", shown_tags.as_deref()), ""),
     ];
     let kind_of = |f: &[ui::Field]| kind.map_or_else(|| form_type(ui::value(f, "type"), was), Ok);
-    let new_kind = loop {
-        ui::form(&mut f, |f| {
+    ui::form(
+        &mut f,
+        |f| {
             let mut keys = vec!["service"];
             if kind.is_none() {
                 keys.push("type");
@@ -528,12 +527,10 @@ fn cmd_edit(
                 keys.push("tags");
             }
             keys
-        })?;
-        match kind_of(&f) {
-            Ok(k) => break k,
-            Err(err) => ui::note(&err),
-        }
-    };
+        },
+        |f| kind_of(f).err().map(|m| ("type", m)),
+    )?;
+    let new_kind = kind_of(&f).unwrap_or(was);
 
     let apply = |raw: &str, cur: &mut Option<String>| match raw.trim() {
         "" => {}

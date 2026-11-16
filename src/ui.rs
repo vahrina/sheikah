@@ -197,15 +197,30 @@ pub(crate) fn value<'a>(fields: &'a [Field], key: &str) -> &'a str {
         .map_or("", |f| f.value.as_str())
 }
 
+/// the field to clear & focus, and why
+pub(crate) type Invalid = Option<(&'static str, String)>;
+
 /// edits `fields` in place, one line each; up/down or ctrl-k/j move, enter on the last line submits.
-/// `visible` picks the keys to show, in order, from the current values
+/// `visible` picks the keys to show, in order, from the current values.
+/// on submit, a key from `invalid` gets cleared & focused instead, its message as a tip
 pub(crate) fn form(
     fields: &mut [Field],
     visible: impl Fn(&[Field]) -> Vec<&'static str>,
+    invalid: impl Fn(&[Field]) -> Invalid,
 ) -> Result<()> {
     if !io::stdin().is_terminal() {
         let mut i = 0;
-        while let Some(&k) = visible(fields).get(i) {
+        loop {
+            let keys = visible(fields);
+            let Some(&k) = keys.get(i) else {
+                let Some((bad, msg)) = invalid(fields) else {
+                    return Ok(());
+                };
+                tip(&msg);
+                clear_field(fields, bad);
+                i = visible(fields).iter().position(|&k| k == bad).unwrap_or(0);
+                continue;
+            };
             let f = fields
                 .iter_mut()
                 .find(|f| f.key == k)
@@ -213,18 +228,28 @@ pub(crate) fn form(
             f.value = prompt(&f.label)?;
             i += 1;
         }
-        return Ok(());
     }
     tip("up/down or ctrl-k/j to move, enter on the last line to finish");
     terminal::enable_raw_mode()?;
-    let res = form_raw(fields, &visible);
+    let res = form_raw(fields, &visible, &invalid);
     let _ = terminal::disable_raw_mode();
     res
 }
 
-fn form_raw(fields: &mut [Field], visible: &dyn Fn(&[Field]) -> Vec<&'static str>) -> Result<()> {
+fn clear_field(fields: &mut [Field], key: &str) {
+    if let Some(f) = fields.iter_mut().find(|f| f.key == key) {
+        f.value.clear();
+    }
+}
+
+fn form_raw(
+    fields: &mut [Field],
+    visible: &dyn Fn(&[Field]) -> Vec<&'static str>,
+    invalid: &dyn Fn(&[Field]) -> Invalid,
+) -> Result<()> {
     let mut err = io::stderr();
     let (mut cur, mut reached, mut row) = (0usize, 0usize, 0u16);
+    let mut msg = String::new();
     loop {
         let keys = visible(fields);
         cur = cur.min(keys.len() - 1);
@@ -233,7 +258,10 @@ fn form_raw(fields: &mut [Field], visible: &dyn Fn(&[Field]) -> Vec<&'static str
             let f = fields.iter().find(|f| f.key == k).expect("visible key");
             format!("{}{}", label(&f.label), f.value)
         };
-        let lines: Vec<String> = keys[..=reached].iter().map(|k| line(k)).collect();
+        let mut lines: Vec<String> = keys[..=reached].iter().map(|k| line(k)).collect();
+        if !msg.is_empty() {
+            lines.push(std::mem::take(&mut msg));
+        }
 
         queue!(err, cursor::MoveToColumn(0))?;
         if row > 0 {
@@ -244,7 +272,7 @@ fn form_raw(fields: &mut [Field], visible: &dyn Fn(&[Field]) -> Vec<&'static str
             Clear(ClearType::FromCursorDown),
             Print(lines.join("\r\n"))
         )?;
-        let below = (reached - cur) as u16;
+        let below = (lines.len() - 1 - cur) as u16;
         if below > 0 {
             queue!(err, cursor::MoveUp(below))?;
         }
@@ -259,9 +287,9 @@ fn form_raw(fields: &mut [Field], visible: &dyn Fn(&[Field]) -> Vec<&'static str
             continue;
         }
         let ctrl = ev.modifiers.contains(KeyModifiers::CONTROL);
-        let f = fields
-            .iter_mut()
-            .find(|f| f.key == keys[cur])
+        let fi = fields
+            .iter()
+            .position(|f| f.key == keys[cur])
             .expect("visible key");
         match ev.code {
             KeyCode::Char('c') if ctrl => {
@@ -273,20 +301,26 @@ fn form_raw(fields: &mut [Field], visible: &dyn Fn(&[Field]) -> Vec<&'static str
             KeyCode::Down | KeyCode::Tab => cur = (cur + 1).min(keys.len() - 1),
             KeyCode::Char('j') if ctrl => cur = (cur + 1).min(keys.len() - 1),
             KeyCode::Enter if cur + 1 == keys.len() => {
+                if let Some((bad, m)) = invalid(fields) {
+                    msg = hint(&m);
+                    clear_field(fields, bad);
+                    cur = visible(fields).iter().position(|&k| k == bad).unwrap_or(0);
+                    continue;
+                }
                 let down = (reached - cur) as u16;
                 if down > 0 {
                     queue!(err, cursor::MoveDown(down))?;
                 }
-                queue!(err, Print("\r\n"))?;
+                queue!(err, Print("\r\n"), Clear(ClearType::FromCursorDown))?;
                 err.flush()?;
                 return Ok(());
             }
             KeyCode::Enter => cur += 1,
-            KeyCode::Char('u') if ctrl => f.value.clear(),
+            KeyCode::Char('u') if ctrl => fields[fi].value.clear(),
             KeyCode::Backspace => {
-                f.value.pop();
+                fields[fi].value.pop();
             }
-            KeyCode::Char(c) if !ctrl => f.value.push(c),
+            KeyCode::Char(c) if !ctrl => fields[fi].value.push(c),
             _ => {}
         }
     }
