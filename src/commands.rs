@@ -225,33 +225,27 @@ fn cmd_init(name: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// `current` lets edit keep the shown type on enter. choices are a dimmed line when verbose
-fn ask_type(current: Option<entry::EntryType>) -> Result<entry::EntryType> {
-    loop {
-        ui::tip(entry::EntryType::CHOICES);
-        let label = match current {
-            Some(cur) => format!("type {}", ui::edim(&format!("[{cur}]"))),
-            None => "type".into(),
-        };
-        let raw = ui::prompt(&label)?;
-        if let Some(cur) = current
-            && (raw.is_empty() || raw == "-")
-        {
-            return Ok(cur);
+/// form keys shown per type, after `service` & `type`
+fn type_keys(kind: entry::EntryType) -> &'static [&'static str] {
+    match kind {
+        entry::EntryType::Login | entry::EntryType::Recovery => {
+            &["username", "email", "url", "tags", "notes"]
         }
-        match raw.parse::<entry::EntryType>() {
-            Ok(k) => return Ok(k),
-            Err(e) => ui::note(&e),
-        }
+        entry::EntryType::Ssh => &["host", "username", "port"],
     }
 }
 
-fn resolve_type(given: Option<entry::EntryType>, interactive: bool) -> Result<entry::EntryType> {
-    match given {
-        Some(k) => Ok(k),
-        None if interactive => ask_type(None),
-        None => Ok(entry::EntryType::Login),
+/// empty means `fallback`
+fn form_type(raw: &str, fallback: entry::EntryType) -> Result<entry::EntryType, String> {
+    match raw.trim() {
+        "" | "-" => Ok(fallback),
+        x => x.parse(),
     }
+}
+
+fn non_empty(s: &str) -> Option<String> {
+    let s = s.trim();
+    (!s.is_empty()).then(|| s.to_string())
 }
 
 fn take_or_prompt(val: Option<String>, label: &str, ask: bool) -> Result<Option<String>> {
@@ -262,59 +256,106 @@ fn take_or_prompt(val: Option<String>, label: &str, ask: bool) -> Result<Option<
     }
 }
 
-/// fields the old `add` asked for. `recovery` uses these too, then codes instead of a password
-fn fill_common(e: &mut Entry, a: &AddArgs, interactive: bool) -> Result<()> {
-    let field = |val: &Option<String>, label: &str| -> Result<Option<String>> {
-        match val {
-            Some(x) if !x.is_empty() => Ok(Some(x.clone())),
-            Some(_) => Ok(None),
-            None if interactive => ui::prompt_opt(&format!("{label}{}", ui::hint(" (optional)"))),
-            None => Ok(None),
-        }
-    };
-    e.username = field(&a.user, "username")?;
-    e.email = field(&a.email, "email")?;
-    e.url = field(&a.domain, "url")?;
-    e.tags = match a.tags.as_deref() {
-        Some(x) => entry::parse_tags(x),
-        None if interactive => field(&None, "tags")?
-            .map(|x| entry::parse_tags(&x))
-            .unwrap_or_default(),
-        None => Vec::new(),
-    };
-    e.notes = field(&a.notes, "notes")?;
-    Ok(())
-}
-
-fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
-    let mut s = unlock(name)?;
-    let interactive = a.service.is_none();
-
-    let service = match a.service.clone() {
-        Some(x) => x,
-        None => ui::prompt("service")?,
-    };
+/// `add -s ...`: fields come from args; ssh still asks for missing host, username & port
+fn add_from_args(a: AddArgs) -> Result<Entry> {
+    let service = a.service.unwrap_or_default();
     if service.is_empty() {
         bail!("service must not be empty");
     }
-
-    let kind = resolve_type(a.kind, interactive)?;
     let mut e = Entry::new(service, String::new());
-    e.kind = kind;
-
-    match kind {
+    e.kind = a.kind.unwrap_or_default();
+    let opt = |v: Option<String>| v.filter(|x| !x.is_empty());
+    e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
+    e.notes = opt(a.notes);
+    match e.kind {
         entry::EntryType::Login | entry::EntryType::Recovery => {
-            fill_common(&mut e, &a, interactive)?
+            e.username = opt(a.user);
+            e.email = opt(a.email);
+            e.url = opt(a.domain);
         }
         entry::EntryType::Ssh => {
             e.url = take_or_prompt(a.domain, "host", true)?;
             e.username = take_or_prompt(a.user, "username", true)?;
             e.port = take_or_prompt(None, "port", true)?;
-            e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
-            e.notes = a.notes.filter(|n| !n.is_empty());
         }
     }
-    if kind.uses_recovery() {
+    Ok(e)
+}
+
+/// plain `add`: one form, args prefill their fields
+fn add_from_form(a: &AddArgs) -> Result<Entry> {
+    let opt = |l: &str| format!("{l}{}", ui::hint(" (optional)"));
+    let arg = |v: &Option<String>| v.clone().unwrap_or_default();
+    let type_label = format!(
+        "type{}",
+        ui::hint(&format!(" ({})", entry::EntryType::CHOICES))
+    );
+    let mut f = vec![
+        ui::Field::new("service", "service", ""),
+        ui::Field::new("type", type_label, ""),
+        ui::Field::new("username", opt("username"), arg(&a.user)),
+        ui::Field::new("email", opt("email"), arg(&a.email)),
+        ui::Field::new("url", opt("url"), arg(&a.domain)),
+        ui::Field::new("host", "host", arg(&a.domain)),
+        ui::Field::new("port", "port", ""),
+        ui::Field::new("tags", opt("tags"), arg(&a.tags)),
+        ui::Field::new("notes", opt("notes"), arg(&a.notes)),
+    ];
+    let fixed = a.kind;
+    let kind_of = |f: &[ui::Field]| {
+        fixed.map_or_else(|| form_type(ui::value(f, "type"), Default::default()), Ok)
+    };
+    loop {
+        ui::form(&mut f, |f| {
+            let mut keys = vec!["service"];
+            if fixed.is_none() {
+                keys.push("type");
+            }
+            keys.extend(type_keys(kind_of(f).unwrap_or_default()));
+            keys
+        })?;
+        let kind = match kind_of(&f) {
+            Ok(k) => k,
+            Err(e) => {
+                ui::note(&e);
+                continue;
+            }
+        };
+        let Some(service) = non_empty(ui::value(&f, "service")) else {
+            ui::note("service must not be empty");
+            continue;
+        };
+        let v = |k| non_empty(ui::value(&f, k));
+        let mut e = Entry::new(service, String::new());
+        e.kind = kind;
+        match kind {
+            entry::EntryType::Login | entry::EntryType::Recovery => {
+                e.username = v("username");
+                e.email = v("email");
+                e.url = v("url");
+                e.tags = entry::parse_tags(ui::value(&f, "tags"));
+                e.notes = v("notes");
+            }
+            entry::EntryType::Ssh => {
+                e.url = v("host");
+                e.username = v("username");
+                e.port = v("port");
+                e.tags = a.tags.as_deref().map(entry::parse_tags).unwrap_or_default();
+                e.notes = a.notes.clone().filter(|n| !n.is_empty());
+            }
+        }
+        return Ok(e);
+    }
+}
+
+fn cmd_add(name: Option<&str>, a: AddArgs) -> Result<()> {
+    let mut s = unlock(name)?;
+    let mut e = if a.service.is_some() {
+        add_from_args(a)?
+    } else {
+        add_from_form(&a)?
+    };
+    if e.kind.uses_recovery() {
         e.recovery = ui::prompt_lines("recovery codes")?;
     } else {
         e.password = ui::new_secret("password")?.to_string();
@@ -459,36 +500,73 @@ fn cmd_edit(
     let e = &mut s.entries[i];
     ui::tip("'enter' to keep | '-' to clear");
 
-    if let Some(x) = ui::prompt_opt(&format!(
-        "service {}",
-        ui::edim(&format!("[{}]", e.service))
-    ))? && x != "-"
+    let cur = |v: Option<&str>| ui::edim(&format!("[{}]", v.unwrap_or("-")));
+    let lbl = |k: &str, v: Option<&str>| format!("{k} {}", cur(v));
+    let was = e.entry_type();
+    let shown_tags = e.tags_display();
+    let mut f = vec![
+        ui::Field::new("service", lbl("service", Some(&e.service)), ""),
+        ui::Field::new("type", lbl("type", Some(was.as_str())), ""),
+        ui::Field::new("username", lbl("username", e.username.as_deref()), ""),
+        ui::Field::new("email", lbl("email", e.email.as_deref()), ""),
+        ui::Field::new("url", lbl("url", e.url.as_deref()), ""),
+        ui::Field::new("host", lbl("host", e.url.as_deref()), ""),
+        ui::Field::new("port", lbl("port", e.port.as_deref()), ""),
+        ui::Field::new("notes", lbl("notes", e.notes.as_deref()), ""),
+        ui::Field::new("tags", lbl("tags", shown_tags.as_deref()), ""),
+    ];
+    let kind_of = |f: &[ui::Field]| kind.map_or_else(|| form_type(ui::value(f, "type"), was), Ok);
+    let new_kind = loop {
+        ui::form(&mut f, |f| {
+            let mut keys = vec!["service"];
+            if kind.is_none() {
+                keys.push("type");
+            }
+            let k = kind_of(f).unwrap_or(was);
+            keys.extend(type_keys(k).iter().filter(|&&x| x != "tags"));
+            if tags.is_none() {
+                keys.push("tags");
+            }
+            keys
+        })?;
+        match kind_of(&f) {
+            Ok(k) => break k,
+            Err(err) => ui::note(&err),
+        }
+    };
+
+    let apply = |raw: &str, cur: &mut Option<String>| match raw.trim() {
+        "" => {}
+        "-" => *cur = None,
+        x => *cur = Some(x.to_string()),
+    };
+    let v = |k| ui::value(&f, k);
+    if let Some(x) = non_empty(v("service"))
+        && x != "-"
     {
         e.service = x;
     }
-
-    match kind {
-        Some(k) => e.kind = k,
-        None => e.kind = ask_type(Some(e.entry_type()))?,
-    }
-
-    match e.entry_type() {
+    e.kind = new_kind;
+    match new_kind {
         entry::EntryType::Login | entry::EntryType::Recovery => {
-            edit_field("username", &mut e.username)?;
-            edit_field("email", &mut e.email)?;
-            edit_field("url", &mut e.url)?;
-            edit_field("notes", &mut e.notes)?;
+            apply(v("username"), &mut e.username);
+            apply(v("email"), &mut e.email);
+            apply(v("url"), &mut e.url);
+            apply(v("notes"), &mut e.notes);
         }
         entry::EntryType::Ssh => {
-            edit_field("host", &mut e.url)?;
-            edit_field("username", &mut e.username)?;
-            edit_field("port", &mut e.port)?;
+            apply(v("host"), &mut e.url);
+            apply(v("username"), &mut e.username);
+            apply(v("port"), &mut e.port);
         }
     }
-
     match tags {
         Some(t) => e.tags = entry::parse_tags(t),
-        None => edit_tags(&mut e.tags)?,
+        None => match v("tags").trim() {
+            "" => {}
+            "-" => e.tags.clear(),
+            x => e.tags = entry::parse_tags(x),
+        },
     }
 
     if e.entry_type().uses_recovery() {
@@ -505,31 +583,6 @@ fn cmd_edit(
     let svc = e.service.clone();
     s.save()?;
     ui::say(&format!("updated {svc}"));
-    Ok(())
-}
-
-fn edit_field(label: &str, cur: &mut Option<String>) -> Result<()> {
-    let shown = ui::edim(&format!("[{}]", cur.as_deref().unwrap_or("-")));
-    match ui::prompt_opt(&format!("{label} {shown}"))?.as_deref() {
-        None => {}
-        Some("-") => *cur = None,
-        Some(x) => *cur = Some(x.to_string()),
-    }
-    Ok(())
-}
-
-fn edit_tags(tags: &mut Vec<String>) -> Result<()> {
-    let cur = if tags.is_empty() {
-        "-".into()
-    } else {
-        tags.join(", ")
-    };
-    let shown = ui::edim(&format!("[{cur}]"));
-    match ui::prompt_opt(&format!("tags {shown}"))?.as_deref() {
-        None => {}
-        Some("-") => tags.clear(),
-        Some(x) => *tags = entry::parse_tags(x),
-    }
     Ok(())
 }
 

@@ -1,4 +1,11 @@
 use anyhow::{Context, Result, bail};
+use crossterm::{
+    cursor,
+    event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
+    queue,
+    style::Print,
+    terminal::{self, Clear, ClearType},
+};
 use rpassword::prompt_password;
 use std::{
     env::var_os,
@@ -159,6 +166,130 @@ pub(crate) fn prompt(text: &str) -> Result<String> {
 pub(crate) fn prompt_opt(text: &str) -> Result<Option<String>> {
     let v = prompt(text)?;
     Ok((!v.is_empty()).then_some(v))
+}
+
+/// one line of a `form`; `label` may carry a dimmed hint or the current value
+pub(crate) struct Field {
+    pub(crate) key: &'static str,
+    pub(crate) label: String,
+    pub(crate) value: String,
+}
+
+impl Field {
+    pub(crate) fn new(
+        key: &'static str,
+        label: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        Field {
+            key,
+            label: label.into(),
+            value: value.into(),
+        }
+    }
+}
+
+/// value of `key`, empty when missing
+pub(crate) fn value<'a>(fields: &'a [Field], key: &str) -> &'a str {
+    fields
+        .iter()
+        .find(|f| f.key == key)
+        .map_or("", |f| f.value.as_str())
+}
+
+/// edits `fields` in place, one line each; up/down or ctrl-k/j move, enter on the last line submits.
+/// `visible` picks the keys to show, in order, from the current values
+pub(crate) fn form(
+    fields: &mut [Field],
+    visible: impl Fn(&[Field]) -> Vec<&'static str>,
+) -> Result<()> {
+    if !io::stdin().is_terminal() {
+        let mut i = 0;
+        while let Some(&k) = visible(fields).get(i) {
+            let f = fields
+                .iter_mut()
+                .find(|f| f.key == k)
+                .context("unknown field")?;
+            f.value = prompt(&f.label)?;
+            i += 1;
+        }
+        return Ok(());
+    }
+    tip("up/down or ctrl-k/j to move, enter on the last line to finish");
+    terminal::enable_raw_mode()?;
+    let res = form_raw(fields, &visible);
+    let _ = terminal::disable_raw_mode();
+    res
+}
+
+fn form_raw(fields: &mut [Field], visible: &dyn Fn(&[Field]) -> Vec<&'static str>) -> Result<()> {
+    let mut err = io::stderr();
+    let (mut cur, mut reached, mut row) = (0usize, 0usize, 0u16);
+    loop {
+        let keys = visible(fields);
+        cur = cur.min(keys.len() - 1);
+        reached = reached.max(cur).min(keys.len() - 1);
+        let line = |k: &str| {
+            let f = fields.iter().find(|f| f.key == k).expect("visible key");
+            format!("{}{}", label(&f.label), f.value)
+        };
+        let lines: Vec<String> = keys[..=reached].iter().map(|k| line(k)).collect();
+
+        queue!(err, cursor::MoveToColumn(0))?;
+        if row > 0 {
+            queue!(err, cursor::MoveUp(row))?;
+        }
+        queue!(
+            err,
+            Clear(ClearType::FromCursorDown),
+            Print(lines.join("\r\n"))
+        )?;
+        let below = (reached - cur) as u16;
+        if below > 0 {
+            queue!(err, cursor::MoveUp(below))?;
+        }
+        queue!(err, cursor::MoveToColumn(0), Print(&lines[cur]))?;
+        err.flush()?;
+        row = cur as u16;
+
+        let Event::Key(ev) = event::read()? else {
+            continue;
+        };
+        if ev.kind == KeyEventKind::Release {
+            continue;
+        }
+        let ctrl = ev.modifiers.contains(KeyModifiers::CONTROL);
+        let f = fields
+            .iter_mut()
+            .find(|f| f.key == keys[cur])
+            .expect("visible key");
+        match ev.code {
+            KeyCode::Char('c') if ctrl => {
+                let _ = terminal::disable_raw_mode();
+                crate::signal::interrupted();
+            }
+            KeyCode::Up | KeyCode::BackTab => cur = cur.saturating_sub(1),
+            KeyCode::Char('k') if ctrl => cur = cur.saturating_sub(1),
+            KeyCode::Down | KeyCode::Tab => cur = (cur + 1).min(keys.len() - 1),
+            KeyCode::Char('j') if ctrl => cur = (cur + 1).min(keys.len() - 1),
+            KeyCode::Enter if cur + 1 == keys.len() => {
+                let down = (reached - cur) as u16;
+                if down > 0 {
+                    queue!(err, cursor::MoveDown(down))?;
+                }
+                queue!(err, Print("\r\n"))?;
+                err.flush()?;
+                return Ok(());
+            }
+            KeyCode::Enter => cur += 1,
+            KeyCode::Char('u') if ctrl => f.value.clear(),
+            KeyCode::Backspace => {
+                f.value.pop();
+            }
+            KeyCode::Char(c) if !ctrl => f.value.push(c),
+            _ => {}
+        }
+    }
 }
 
 /// one `> ` line per item until an empty line; rejects an empty list

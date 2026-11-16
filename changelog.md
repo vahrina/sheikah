@@ -9,6 +9,8 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ### added
 
+- cycle through `add`/`edit` via <kbd>ctrl</kbd>-<kbd>j</kbd>/<kbd>k</kbd> or <kbd>up</kbd>/<kbd>down</kbd>
+- uploaded to [`crates.io`](https://crates.io/crates/sheikah) & added installation instructions for cargo
 - `sheikah completions update [--dir <DIR>]` installs or refreshes zsh completions automatically
 - master password cache ([#3](https://github.com/vahrina/sheikah/pull/3), thanks @ttkm)
 - add entry types, remove -r ([#2](https://github.com/vahrina/sheikah/pull/2), thanks @ttkm)
