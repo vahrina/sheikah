@@ -216,7 +216,7 @@ pub(crate) fn form(
                 let Some((bad, msg)) = invalid(fields) else {
                     return Ok(());
                 };
-                tip(&msg);
+                note(&msg);
                 clear_field(fields, bad);
                 i = visible(fields).iter().position(|&k| k == bad).unwrap_or(0);
                 continue;
@@ -229,7 +229,7 @@ pub(crate) fn form(
             i += 1;
         }
     }
-    tip("up/down or ctrl-k/j to move, enter on the last line to finish");
+    note("up/down or ctrl-k/j to move, enter on the last line to finish");
     terminal::enable_raw_mode()?;
     let res = form_raw(fields, &visible, &invalid);
     let _ = terminal::disable_raw_mode();
@@ -302,7 +302,7 @@ fn form_raw(
             KeyCode::Char('j') if ctrl => cur = (cur + 1).min(keys.len() - 1),
             KeyCode::Enter if cur + 1 == keys.len() => {
                 if let Some((bad, m)) = invalid(fields) {
-                    msg = hint(&m);
+                    msg = edim(&m);
                     clear_field(fields, bad);
                     cur = visible(fields).iter().position(|&k| k == bad).unwrap_or(0);
                     continue;
