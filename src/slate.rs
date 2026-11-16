@@ -21,8 +21,6 @@ const SALT_LEN: usize = 16;
 const NONCE_LEN: usize = 12;
 const TAG_LEN: usize = 16;
 pub(crate) const DEFAULT_NAME: &str = "eye";
-pub(crate) const BACKUPS: usize = 5;
-
 // m KiB, t, p. not stored in the file: `open` also tries LEGACY, and the next save upgrades
 #[cfg(not(test))]
 const ARGON: (u32, u32, u32) = (19 * 1024, 2, 1);
@@ -128,10 +126,10 @@ pub(crate) fn resolve(name: Option<&str>) -> Result<PathBuf> {
     }
 }
 
-/// `<slate>.1.bak` ..= `<slate>.N.bak`
-fn backup_slots(path: &Path) -> Vec<PathBuf> {
+/// `<slate>.1.bak` ..= `<slate>.N.bak`, at least one slot
+fn backup_slots(path: &Path, keep: usize) -> Vec<PathBuf> {
     let name = file_name(path);
-    (1..=BACKUPS)
+    (1..=keep.max(1))
         .map(|n| path.with_file_name(format!("{name}.{n}.bak")))
         .collect()
 }
@@ -140,12 +138,29 @@ fn mtime(p: &Path) -> Option<SystemTime> {
     fs::metadata(p).and_then(|m| m.modified()).ok()
 }
 
-/// existing backups of a slate, newest first; includes the pre-0.2 `<slate>.bak`
+/// existing backups of a slate, newest first: every `<slate>.N.bak`, so slots left over
+/// from a larger `backup.keep` still show, plus the pre-0.2 `<slate>.bak`
 pub(crate) fn backups(path: &Path) -> Vec<(PathBuf, SystemTime)> {
-    let mut slots = backup_slots(path);
-    slots.push(path.with_file_name(format!("{}.bak", file_name(path))));
-    let mut found: Vec<(PathBuf, SystemTime)> = slots
+    let name = file_name(path);
+    let dir = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let is_backup = |f: &str| {
+        f.strip_prefix(&name)
+            .and_then(|r| r.strip_prefix('.'))
+            .and_then(|r| r.strip_suffix("bak"))
+            .is_some_and(|n| {
+                n.is_empty()
+                    || n.strip_suffix('.')
+                        .is_some_and(|d| d.parse::<usize>().is_ok())
+            })
+    };
+    let mut found: Vec<(PathBuf, SystemTime)> = fs::read_dir(dir)
         .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| is_backup(&file_name(p)))
         .filter_map(|p| mtime(&p).map(|t| (p, t)))
         .collect();
     found.sort_by_key(|b| Reverse(b.1));
@@ -153,14 +168,14 @@ pub(crate) fn backups(path: &Path) -> Vec<(PathBuf, SystemTime)> {
 }
 
 /// first free slot, else the oldest. slots get overwritten, never deleted: `chattr +a`
-fn next_backup(path: &Path) -> PathBuf {
-    let slots = backup_slots(path);
+fn next_backup(path: &Path, keep: usize) -> PathBuf {
+    let slots = backup_slots(path, keep);
     match slots.iter().find(|p| !p.exists()) {
         Some(free) => free.clone(),
         None => slots
             .into_iter()
             .min_by_key(|p| mtime(p))
-            .expect("BACKUPS > 0"),
+            .expect("at least one slot"),
     }
 }
 
@@ -173,18 +188,18 @@ fn parse(plain: &[u8]) -> Result<(Config, Vec<Entry>)> {
     )
 }
 
-/// entries of a slate or backup file, without making it the live slate
-pub(crate) fn peek(path: &Path, pass: &str) -> Result<Vec<Entry>> {
+/// config & entries of a slate or backup file, without making it the live slate
+pub(crate) fn peek(path: &Path, pass: &str) -> Result<(Config, Vec<Entry>)> {
     let blob = fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
-    Ok(parse(&open(pass, &blob)?.0)?.1)
+    parse(&open(pass, &blob)?.0)
 }
 
 /// replaces the slate with `backup` if `pass` opens it; the current slate becomes a backup
-pub(crate) fn restore(path: &Path, backup: &Path, pass: &str) -> Result<()> {
+pub(crate) fn restore(path: &Path, backup: &Path, pass: &str, keep: usize) -> Result<()> {
     let blob = fs::read(backup).with_context(|| format!("cannot read {}", backup.display()))?;
     open(pass, &blob)?;
     let _guard = crate::signal::Critical::enter();
-    write_file(&next_backup(path), &fs::read(path)?)?;
+    write_file(&next_backup(path, keep), &fs::read(path)?)?;
     write_file(path, &blob)
 }
 
@@ -283,7 +298,7 @@ impl Slate {
     /// writes in place (after copying the old file to a backup slot) instead of
     /// tmp + rename, since rename cannot replace files in a `chattr +a` dir
     pub(crate) fn save(&self) -> Result<()> {
-        self.write(&next_backup(&self.path))
+        self.write(&next_backup(&self.path, self.config.backup.keep))
     }
 
     /// like `save`, but the old file goes to `<slate>.used.bak` instead of a rotating slot,
@@ -339,7 +354,7 @@ mod tests {
 
     fn cleanup(p: &Path) {
         let _ = fs::remove_file(p);
-        for b in backup_slots(p) {
+        for (b, _) in backups(p) {
             let _ = fs::remove_file(b);
         }
     }
@@ -386,22 +401,24 @@ mod tests {
     fn backups_rotate_and_restore() {
         let path = tmp("rotate");
         init(&path, "pw").unwrap();
+        let keep = 3;
         let mut v = Slate::load(path.clone(), Zeroizing::new("pw".into())).unwrap();
-        for i in 0..BACKUPS + 2 {
+        v.config.backup.keep = keep;
+        for i in 0..keep + 2 {
             v.entries.push(Entry::new(format!("s{i}"), "x".into()));
             v.save().unwrap();
             // slots rotate by mtime
             std::thread::sleep(std::time::Duration::from_millis(20));
         }
         let baks = backups(&path);
-        assert_eq!(baks.len(), BACKUPS);
+        assert_eq!(baks.len(), keep);
 
         let newest = &baks[0].0;
-        assert!(restore(&path, newest, "wrong").is_err());
-        restore(&path, newest, "pw").unwrap();
+        assert!(restore(&path, newest, "wrong", keep).is_err());
+        restore(&path, newest, "pw", keep).unwrap();
         let v = Slate::load(path.clone(), Zeroizing::new("pw".into())).unwrap();
-        assert_eq!(v.entries.len(), BACKUPS + 1);
-        assert_eq!(backups(&path).len(), BACKUPS);
+        assert_eq!(v.entries.len(), keep + 1);
+        assert_eq!(backups(&path).len(), keep);
 
         cleanup(&path);
     }

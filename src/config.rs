@@ -8,8 +8,22 @@ pub(crate) struct Config {
     pub(crate) table: Table,
     pub(crate) clipboard: Clipboard,
     pub(crate) session: Session,
+    pub(crate) backup: Backup,
     pub(crate) theme: Theme,
     pub(crate) ui: Ui,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(default)]
+pub(crate) struct Backup {
+    /// rotating `<slate>.N.bak` slots, at least 1
+    pub(crate) keep: usize,
+}
+
+impl Default for Backup {
+    fn default() -> Self {
+        Backup { keep: 5 }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -215,6 +229,8 @@ pub(crate) const HELP: &str = "\
 #   clear: seconds until a copied secret is wiped, 0 to disable
 # session
 #   cache: seconds to remember the master password, 0 to disable
+# backup
+#   keep: how many backups to rotate through, at least 1
 # theme
 #   name: 0x96f | ascendancy | black-metal | custom
 #   <role> overrides one role of the theme
@@ -235,7 +251,10 @@ mod tests {
         assert_eq!(c.table.sort, Sort::Alphabetical);
         assert_eq!(c.clipboard.clear, 45);
         assert_eq!(c.session.cache, 60);
+        assert_eq!(c.backup.keep, 5);
         assert!(c.ui.verbose && c.ui.inspect_delete);
+        let c: Config = toml::from_str("[backup]\nkeep = 10").unwrap();
+        assert_eq!(c.backup.keep, 10);
         let c: Config = toml::from_str("[ui]\nverbose = false").unwrap();
         assert!(!c.ui.verbose && c.ui.inspect_delete);
 

@@ -614,7 +614,7 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
         None => ui::secret("master password")?,
     };
     let current = slate::peek(&path, &pass).ok();
-    let peeked: Vec<Option<Vec<Entry>>> = baks
+    let peeked: Vec<Option<(Config, Vec<Entry>)>> = baks
         .iter()
         .map(|(p, _)| slate::peek(p, &pass).ok())
         .collect();
@@ -626,8 +626,8 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
         .map(|(i, ((p, t), e))| {
             let secs = t.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
             let summary = e
-                .as_deref()
-                .map_or("other master password".into(), backup_summary);
+                .as_ref()
+                .map_or("other master password".into(), |(_, e)| backup_summary(e));
             (
                 i,
                 format!("{}  {}  {summary}", entry::rfc3339(secs), tilde(p)),
@@ -637,7 +637,7 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
     let pick = ui::choose(&lines, "")?;
     let bak = &baks[pick].0;
 
-    let entries = match &peeked[pick] {
+    let (bak_config, entries) = match &peeked[pick] {
         Some(e) => e.clone(),
         None => {
             ui::note("this backup was saved with another master password");
@@ -646,9 +646,12 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
         }
     };
     match &current {
-        Some(cur) => backup_diff(cur, &entries),
+        Some((_, cur)) => backup_diff(cur, &entries),
         None => ui::note("current slate does not open, cannot compare"),
     }
+    let keep = current
+        .as_ref()
+        .map_or(bak_config.backup.keep, |(c, _)| c.backup.keep);
 
     if !ui::confirm(&format!(
         "restore {}? the current slate becomes a backup",
@@ -657,7 +660,7 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
         ui::say("nothing restored");
         return Ok(());
     }
-    slate::restore(&path, bak, &pass)?;
+    slate::restore(&path, bak, &pass, keep)?;
     cache::clear(&path);
     ui::say(&format!("restored {}", tilde(bak)));
     Ok(())
