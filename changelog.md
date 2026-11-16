@@ -9,15 +9,16 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ### added
 
-- cycle through `add`/`edit` via <kbd>ctrl</kbd>-<kbd>j</kbd>/<kbd>k</kbd> or <kbd>up</kbd>/<kbd>down</kbd>
+- cycle through `add`/`edit` via <kbd>ctrl</kbd>-<kbd>j</kbd>/<kbd>k</kbd> or <kbd>up</kbd>/<kbd>down</kbd> ([`df0c552`](https://github.com/vahrina/sheikah/commit/df0c5528937a12a135ba57a11573b3e28f090609))
 - uploaded to [`crates.io`](https://crates.io/crates/sheikah) & added installation instructions for cargo
-- `sheikah completions update [--dir <DIR>]` installs or refreshes zsh completions automatically
+- `sheikah completions update [--dir <DIR>]` installs or refreshes zsh completions automatically ([`7deadf8`](https://github.com/vahrina/sheikah/commit/7deadf83763f8e3c48f10b3222e361f7d13e8e08))
 - master password cache ([#3](https://github.com/vahrina/sheikah/pull/3), thanks @ttkm)
 - add entry types, remove -r ([#2](https://github.com/vahrina/sheikah/pull/2), thanks @ttkm)
 - allow empty passwords ([`086e43e`](https://github.com/vahrina/sheikah/commit/086e43e3cccfa614183a8d21ad88726964f12859))
 
 ### changed
 
+- split `cli_tests.rs` into its own dedicated dir @ `src/tests` ([`82387b9`](https://github.com/vahrina/sheikah/commit/82387b9f0a30d74c4c66a35052b0c7cfa9541b87))
 - readme: dedupe, grammatical mistakes & some reorganizing ([`71183cb`](https://github.com/vahrina/sheikah/commit/71183cbccc839b23c395fda1e1797eb7ec8d4936), [`49f1b5f`](https://github.com/vahrina/sheikah/commit/49f1b5fde904a6ffbcd2df73401c697cea1f9086), [`dacb3c5`](https://github.com/vahrina/sheikah/commit/dacb3c54275d06d93fde3cf15ef6593d981f0974), [`7eb83b1`](https://github.com/vahrina/sheikah/commit/7eb83b11ff7e999bd97e80b3467f1d0260aea510))
 
 ### removed
@@ -27,6 +28,7 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ### chores
 
+- deps: cargo update ([`9e8fbf1`](https://github.com/vahrina/sheikah/commit/9e8fbf1dbee7293261e14724036e93c3aad1ea33))
 - deps: cargo update ([`6607036`](https://github.com/vahrina/sheikah/commit/66070369d7677244501022f34db3c33dc66958b3))
 
 ## [0.3.5] - 2026-10-30
