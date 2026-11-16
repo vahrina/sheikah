@@ -7,6 +7,8 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+## [0.3.6] - 2026-11-17
+
 ### added
 
 - cycle through `add`/`edit` via <kbd>ctrl</kbd>-<kbd>j</kbd>/<kbd>k</kbd> or <kbd>up</kbd>/<kbd>down</kbd> ([`df0c552`](https://github.com/vahrina/sheikah/commit/df0c5528937a12a135ba57a11573b3e28f090609))
@@ -118,7 +120,8 @@ first tagged release & retroactively documented from git history
 
 - wrong directory permissions (octal instead of hex)
 
-[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.5...head
+[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.6...head
+[0.3.6]: https://github.com/vahrina/sheikah/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/vahrina/sheikah/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/vahrina/sheikah/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/vahrina/sheikah/compare/v0.3.2...v0.3.3
