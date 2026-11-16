@@ -104,6 +104,12 @@ pub(crate) fn edim(s: &str) -> String {
 pub(crate) fn eerror(s: &str) -> String {
     paint(&ERR, |t| t.error, s)
 }
+pub(crate) fn eaccent(s: &str) -> String {
+    paint(&ERR, |t| t.accent, s)
+}
+pub(crate) fn ekey(s: &str) -> String {
+    paint(&ERR, |t| t.key, s)
+}
 
 /// a status line on stdout, e.g. `~ added 'github'`
 pub(crate) fn say(msg: &str) {

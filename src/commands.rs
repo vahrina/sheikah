@@ -608,15 +608,47 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
             tilde(&path)
         );
     }
+    // the current slate may be the broken one, so it never has to open
+    let mut pass = match cache::load(&path) {
+        Some(p) => Zeroizing::new(p.expose_secret().to_owned()),
+        None => ui::secret("master password")?,
+    };
+    let current = slate::peek(&path, &pass).ok();
+    let peeked: Vec<Option<Vec<Entry>>> = baks
+        .iter()
+        .map(|(p, _)| slate::peek(p, &pass).ok())
+        .collect();
+
     let lines: Vec<(usize, String)> = baks
         .iter()
+        .zip(&peeked)
         .enumerate()
-        .map(|(i, (p, t))| {
+        .map(|(i, ((p, t), e))| {
             let secs = t.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
-            (i, format!("{}  {}", entry::rfc3339(secs), tilde(p)))
+            let summary = e
+                .as_deref()
+                .map_or("other master password".into(), backup_summary);
+            (
+                i,
+                format!("{}  {}  {summary}", entry::rfc3339(secs), tilde(p)),
+            )
         })
         .collect();
-    let bak = &baks[ui::choose(&lines, "")?].0;
+    let pick = ui::choose(&lines, "")?;
+    let bak = &baks[pick].0;
+
+    let entries = match &peeked[pick] {
+        Some(e) => e.clone(),
+        None => {
+            ui::note("this backup was saved with another master password");
+            pass = ui::secret("backup master password")?;
+            slate::peek(bak, &pass)?
+        }
+    };
+    match &current {
+        Some(cur) => backup_diff(cur, &entries),
+        None => ui::note("current slate does not open, cannot compare"),
+    }
 
     if !ui::confirm(&format!(
         "restore {}? the current slate becomes a backup",
@@ -625,13 +657,57 @@ fn cmd_backup(name: Option<&str>) -> Result<()> {
         ui::say("nothing restored");
         return Ok(());
     }
-    ui::note("the backup keeps the master password it was saved with");
-    // never use the session cache: a backup may still hold an older master password
-    let pass = ui::secret("master password")?;
     slate::restore(&path, bak, &pass)?;
     cache::clear(&path);
     ui::say(&format!("restored {}", tilde(bak)));
     Ok(())
+}
+
+/// `12 entries, last github @ 2026-10-21T01:48:00Z`
+fn backup_summary(entries: &[Entry]) -> String {
+    let n = entries.len();
+    match entries.iter().max_by(|a, b| a.created.cmp(&b.created)) {
+        Some(e) => format!("{n} entries, last {} @ {}", e.service, e.created),
+        None => "empty".into(),
+    }
+}
+
+/// services the restore brings back (+), loses (-) or changes (~)
+fn backup_diff(current: &[Entry], backup: &[Entry]) {
+    let find = |es: &[Entry], s: &str| {
+        es.iter()
+            .find(|e| e.service == s)
+            .map(|e| e.modified.clone())
+    };
+    let (back, lost, reverted) = (ui::eaccent("+"), ui::eerror("-"), ui::ekey("~"));
+    let mut lines = Vec::new();
+    for e in backup {
+        match find(current, &e.service) {
+            None => lines.push(format!("{back} {}", e.service)),
+            Some(m) if m != e.modified => lines.push(format!("{reverted} {}", e.service)),
+            Some(_) => {}
+        }
+    }
+    for e in current {
+        if find(backup, &e.service).is_none() {
+            lines.push(format!("{lost} {}", e.service));
+        }
+    }
+    if lines.is_empty() {
+        ui::note("same entries as the current slate");
+        return;
+    }
+    let d = ui::edim;
+    eprintln!(
+        "{}{back}{}{lost}{}{reverted}{}",
+        d("restoring changes: "),
+        d(" back, "),
+        d(" lost, "),
+        d(" reverted")
+    );
+    for l in lines {
+        eprintln!("  {l}");
+    }
 }
 
 fn cmd_passwd(name: Option<&str>) -> Result<()> {

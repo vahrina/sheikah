@@ -164,6 +164,21 @@ fn next_backup(path: &Path) -> PathBuf {
     }
 }
 
+fn parse(plain: &[u8]) -> Result<(Config, Vec<Entry>)> {
+    Ok(
+        match serde_json::from_slice(plain).context("slate contents are malformed")? {
+            Stored::Full { config, entries } => (*config, entries),
+            Stored::Legacy(entries) => (Config::default(), entries),
+        },
+    )
+}
+
+/// entries of a slate or backup file, without making it the live slate
+pub(crate) fn peek(path: &Path, pass: &str) -> Result<Vec<Entry>> {
+    let blob = fs::read(path).with_context(|| format!("cannot read {}", path.display()))?;
+    Ok(parse(&open(pass, &blob)?.0)?.1)
+}
+
 /// replaces the slate with `backup` if `pass` opens it; the current slate becomes a backup
 pub(crate) fn restore(path: &Path, backup: &Path, pass: &str) -> Result<()> {
     let blob = fs::read(backup).with_context(|| format!("cannot read {}", backup.display()))?;
@@ -250,11 +265,7 @@ impl Slate {
     pub(crate) fn load(path: PathBuf, pass: Zeroizing<String>) -> Result<Self> {
         let blob = fs::read(&path).with_context(|| format!("cannot read {}", path.display()))?;
         let (plain, legacy) = open(&pass, &blob)?;
-        let (config, entries) =
-            match serde_json::from_slice(&plain).context("slate contents are malformed")? {
-                Stored::Full { config, entries } => (*config, entries),
-                Stored::Legacy(entries) => (Config::default(), entries),
-            };
+        let (config, entries) = parse(&plain)?;
         let slate = Slate {
             path,
             pass,
