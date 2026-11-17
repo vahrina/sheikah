@@ -52,7 +52,7 @@ needs a rust toolchain (1.98+)
 cargo install sheikah --locked
 ```
 
-rerun with `--force` to reinstall the same version; a newer version release upgrades on its own
+rerun the above command to upgrade & run `--force` to reinstall the same version
 
 ### <ins>source</ins>
 
@@ -60,8 +60,21 @@ needs a rust toolchain & preferably [`just`](https://github.com/casey/just#insta
 
 ```sh
 git clone https://github.com/vahrina/sheikah && cd sheikah
-just install # or: cargo install --path . --locked
+just install # or: cargo +stable install --path . --locked
 ```
+
+updating is a simple procedure: `git pull` then rerun `just install`
+
+to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag`. make sure `changelog.md` has a new version too, otherwise the release workflow will complain:
+
+```console
+Run taiki-e/create-gh-release-action@v1
+Run bash --noprofile --norc "${GITHUB_ACTION_PATH:?}/main.sh"
+  error: not found release note for 'x.x.x' in changelog.md
+  Error: Process completed with exit code 1.
+```
+
+### <ins>symlinking</ins>
 
 if you'd like to give it a new name, symlink it afterwards
 
@@ -69,8 +82,6 @@ if you'd like to give it a new name, symlink it afterwards
 ln -sf "${CARGO_HOME:-$HOME/.cargo}/bin/sheikah" \
   "${CARGO_HOME:-$HOME/.cargo}/bin/<your desired alias>"
 ```
-
-to ship a new version yourself: bump `Cargo.toml`, commit, then `just tag`
 
 ## dependencies
 
