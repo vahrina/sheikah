@@ -25,3 +25,5 @@ needs a rust toolchain & preferably [`just`](https://github.com/casey/just#insta
 git clone https://github.com/vahrina/sheikah && cd sheikah
 just install # or: cargo install --path . --locked
 ```
+
+---
