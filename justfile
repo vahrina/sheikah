@@ -25,4 +25,4 @@ tag:
   echo "pushed $tag — watch Actions → Release"
 
 install:
-  cargo install --path . --locked
+  cargo +stable install --path . --locked
