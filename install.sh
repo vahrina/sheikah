@@ -116,7 +116,6 @@ main() {
   local base="https://github.com/$repo/releases/download/$tag"
   local archive="$BIN-$tag-$arch.tar.gz"
   local sumfile="$BIN-$tag-$arch.sha256"
-  local sumfile="$BIN-$tag-$arch.sha256"
 
   WORK=$(mktemp -d)
   trap cleanup EXIT
