@@ -18,15 +18,15 @@ cleanup() {
 
 usage() {
   cat <<'EOF'
-  usage: curl -fsSL <url-of-this-script> | bash -s -- [options]
+usage: curl -fsSL <url-of-this-script> | bash -s -- [options]
 
   --version v0.2.0   pin a tag
   --dir PATH         install dir (default: ~/.local/bin, or $SHEIKAH_INSTALL_DIR)
   --print-path       print the path of the installed sheikah & exit
   -h, --help         show this help
 
-  env: SHEIKAH_REPO (default: vahrina/sheikah), SHEIKAH_INSTALL_DIR
-  EOF
+env: SHEIKAH_REPO (default: vahrina/sheikah), SHEIKAH_INSTALL_DIR
+EOF
 }
 
 main() {
@@ -36,25 +36,25 @@ main() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --version | -v)
-        [[ $# -ge 2 ]] || die "$1 needs a value"
-        tag="$2"
-        shift 2
-        ;;
-      --dir | -d)
-        [[ $# -ge 2 ]] || die "$1 needs a value"
-        dir="$2"
-        shift 2
-        ;;
-      --print-path)
-        print_path=1
-        shift
-        ;;
-      -h | --help)
-        usage
-        exit 0
-        ;;
-      *) die "unknown option: $1 (see --help)" ;;
+    --version | -v)
+      [[ $# -ge 2 ]] || die "$1 needs a value"
+      tag="$2"
+      shift 2
+      ;;
+    --dir | -d)
+      [[ $# -ge 2 ]] || die "$1 needs a value"
+      dir="$2"
+      shift 2
+      ;;
+    --print-path)
+      print_path=1
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *) die "unknown option: $1 (see --help)" ;;
     esac
   done
 
@@ -93,9 +93,9 @@ main() {
   os=$(uname -s)
   machine=$(uname -m)
   case "$os:$machine" in
-    Linux:x86_64 | Linux:amd64) arch=x86_64 ;;
-    Linux:aarch64 | Linux:arm64) arch=aarch64 ;;
-    *) die "linux x86_64/aarch64 only (got $os $machine); build from source instead" ;;
+  Linux:x86_64 | Linux:amd64) arch=x86_64 ;;
+  Linux:aarch64 | Linux:arm64) arch=aarch64 ;;
+  *) die "linux x86_64/aarch64 only (got $os $machine); build from source instead" ;;
   esac
 
   local -a fetch=(curl -fsSL --proto '=https' --tlsv1.2 --retry 3)
@@ -106,7 +106,7 @@ main() {
     url=$("${fetch[@]}" -I -o /dev/null -w '%{url_effective}' \
       "https://github.com/$repo/releases/latest") || url=""
     [[ "$url" == */releases/tag/* ]] ||
-    die "no release found for $repo (has a tag been pushed yet?)"
+      die "no release found for $repo (has a tag been pushed yet?)"
     tag="${url##*/releases/tag/}"
   elif [[ "$tag" != v* ]]; then
     tag="v$tag"
@@ -122,9 +122,9 @@ main() {
 
   printf 'downloading %s ...\n' "$archive" >&2
   "${fetch[@]}" -o "$WORK/$archive" "$base/$archive" ||
-  die "download failed: $base/$archive"
+    die "download failed: $base/$archive"
   "${fetch[@]}" -o "$WORK/$archive.sha256" "$base/$archive.sha256" ||
-  die "no checksum published for $archive; refusing to install"
+    die "no checksum published for $archive; refusing to install"
 
   local want got
   read -r want _ <"$WORK/$archive.sha256" || true
@@ -132,7 +132,7 @@ main() {
   got=$("${sha[@]}" "$WORK/$archive")
   got=${got%% *}
   [[ "${got,,}" == "${want,,}" ]] || die "checksum mismatch for $archive"
-  printf 'checksum ok (sha256 %s)\n' "${got,,}" >&2
+  printf 'checksum ok (sha256 %s)\n' "${got,}" >&2
 
   mkdir "$WORK/x"
   tar -xzf "$WORK/$archive" -C "$WORK/x" || die "failed to extract $archive"
@@ -147,12 +147,12 @@ main() {
   }
 
   case ":$PATH:" in
-    *":$dir:"*) ;;
-    *)
-      printf '\nnote: %s is not on PATH. add this to your shell rc:\n' "$dir" >&2
-      # shellcheck disable=SC2016  # literal $PATH is intended in the hint
-      printf '  export PATH="%s:$PATH"\n' "$dir" >&2
-      ;;
+  *":$dir:"*) ;;
+  *)
+    printf '\nnote: %s is not on PATH. add this to your shell rc:\n' "$dir" >&2
+    # shellcheck disable=SC2016  # literal $PATH is intended in the hint
+    printf '  export PATH="%s:$PATH"\n' "$dir" >&2
+    ;;
   esac
 
   local ver
