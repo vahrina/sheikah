@@ -225,6 +225,9 @@ clear = 30
 [session]
 cache = 60
 
+[backup]
+keep = 5
+
 [theme]
 name = "0x96f"
 header = "#fffeee"
@@ -272,6 +275,9 @@ inspect_delete = true
 
 <ins>**session**</ins>:
   - `cache` (int): seconds to remember the master password after a successful unlock. stored as a `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & wiped on expiry, failed unlock, `passwd`, or `backup` restore. `0` disables caching
+
+<ins>**backup**</ins>:
+  - `keep` (int): how many `<slate>.N.bak` slots saves rotate through, at least `1`. lowering it leaves the higher slots on disk (still listed by `backup`), since files are never deleted
 
 <ins>**theme**</ins>:
   - `name` (str): base16 palette. built-ins & custom schemes in: [themes](#themes)
@@ -398,7 +404,7 @@ border = "red"
 
 - `~/.sheikah/` is created with minimal owner permissions (`0700`), slate(s) with stricter permissions (`0600`)
 - `init` optionally runs `sudo chattr +a` on the dir ([ref](https://unix.stackexchange.com/questions/269020/what-is-the-effect-of-chattr-a-on-a-directory)), so files in it cannot be deleted or renamed. saves therefore overwrite in place, after copying the previous version to a backup slot. this behaviour only works on certain filesystems (ext4, xfs, btrfs, ...)
-- backups rotate through `<slate>.1.bak` .. `<slate>.5.bak`, the oldest slot gets overwritten (never deleted). `sheikah backup` restores one; a backup keeps the master password it was saved with
+- backups rotate through `<slate>.1.bak` .. `<slate>.N.bak` (`backup.keep`, default 5), the oldest slot gets overwritten (never deleted). `sheikah backup` restores one; a backup keeps the master password it was saved with
 
 ## crypto, security & passwords
 
