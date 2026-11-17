@@ -115,6 +115,8 @@ main() {
 
   local base="https://github.com/$repo/releases/download/$tag"
   local archive="$BIN-$tag-$arch.tar.gz"
+  local sumfile="$BIN-$tag-$arch.sha256"
+  local sumfile="$BIN-$tag-$arch.sha256"
 
   WORK=$(mktemp -d)
   trap cleanup EXIT
@@ -123,16 +125,16 @@ main() {
   printf 'downloading %s ...\n' "$archive" >&2
   "${fetch[@]}" -o "$WORK/$archive" "$base/$archive" ||
     die "download failed: $base/$archive"
-  "${fetch[@]}" -o "$WORK/$archive.sha256" "$base/$archive.sha256" ||
+  "${fetch[@]}" -o "$WORK/$sumfile" "$base/$sumfile" ||
     die "no checksum published for $archive; refusing to install"
 
   local want got
-  read -r want _ <"$WORK/$archive.sha256" || true
+  read -r want _ <"$WORK/$sumfile" || true
   [[ "$want" =~ ^[0-9A-Fa-f]{64}$ ]] || die "malformed checksum file for $archive"
   got=$("${sha[@]}" "$WORK/$archive")
   got=${got%% *}
   [[ "${got,,}" == "${want,,}" ]] || die "checksum mismatch for $archive"
-  printf 'checksum ok (sha256 %s)\n' "${got,}" >&2
+  printf 'checksum ok (sha256 %s)\n' "${got,,}" >&2
 
   mkdir "$WORK/x"
   tar -xzf "$WORK/$archive" -C "$WORK/x" || die "failed to extract $archive"
