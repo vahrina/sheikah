@@ -11,7 +11,20 @@ fn completions_args() {
         parse(&["sheikah", "completions", "update", "-d", "/tmp/zsh"]).command,
         Some(Commands::Completions { dir: Some(_), .. })
     ));
-    assert!(rejects(&["sheikah", "completions", "fish"]));
+    assert!(rejects(&["sheikah", "completions", "powershell"]));
+}
+
+#[test]
+fn bash_and_fish_scripts() {
+    for (shell, needle) in [
+        (clap_complete::Shell::Bash, "complete -F _sheikah"),
+        (clap_complete::Shell::Fish, "complete -c sheikah"),
+    ] {
+        let mut out = Vec::new();
+        crate::commands::completions(shell, &mut out);
+        let script = String::from_utf8(out).unwrap();
+        assert!(script.contains(needle) && script.contains("passwd"));
+    }
 }
 
 #[test]

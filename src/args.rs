@@ -153,7 +153,7 @@ pub(crate) enum Commands {
         file: String,
     },
 
-    /// print or update the zsh completion script
+    /// print a bash, fish or zsh completion script, or `update` the one for $SHELL
     #[command(disable_help_flag = true)]
     Completions {
         action: CompletionAction,
@@ -172,6 +172,8 @@ pub(crate) enum Commands {
 
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum CompletionAction {
+    Bash,
+    Fish,
     Zsh,
     Update,
 }

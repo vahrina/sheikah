@@ -102,20 +102,42 @@ fn cmd_help(sub: Option<&str>) -> Result<()> {
 }
 
 fn cmd_completions(action: CompletionAction, dir: Option<&str>) -> Result<()> {
+    use clap_complete::Shell;
     match action {
-        CompletionAction::Zsh => completions(clap_complete::Shell::Zsh, &mut io::stdout()),
+        CompletionAction::Bash => completions(Shell::Bash, &mut io::stdout()),
+        CompletionAction::Fish => completions(Shell::Fish, &mut io::stdout()),
+        CompletionAction::Zsh => completions(Shell::Zsh, &mut io::stdout()),
         CompletionAction::Update => {
-            let dir = dir.map(PathBuf::from).unwrap_or_else(|| {
-                var_os("XDG_CONFIG_HOME")
+            let shell = var_os("SHELL").unwrap_or_default();
+            let shell = Path::new(&shell).file_name().unwrap_or_default();
+            let xdg = |var: &str, fallback: &str| {
+                var_os(var)
+                    .filter(|v| !v.is_empty())
                     .map(PathBuf::from)
-                    .or_else(|| var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-                    .unwrap_or_else(|| PathBuf::from(".config"))
-                    .join("zsh/completions")
-            });
+                    .unwrap_or_else(|| {
+                        var_os("HOME")
+                            .map(PathBuf::from)
+                            .unwrap_or_default()
+                            .join(fallback)
+                    })
+            };
+            let config = xdg("XDG_CONFIG_HOME", ".config");
+            let (shell, default, file) = match shell.to_str() {
+                Some("zsh") => (Shell::Zsh, config.join("zsh/completions"), "_sheikah"),
+                Some("fish") => (Shell::Fish, config.join("fish/completions"), "sheikah.fish"),
+                Some("bash") => (
+                    Shell::Bash,
+                    xdg("XDG_DATA_HOME", ".local/share").join("bash-completion/completions"),
+                    "sheikah",
+                ),
+                _ => bail!(
+                    "unsupported $SHELL {shell:?}, use `sheikah completions bash|fish|zsh > FILE`"
+                ),
+            };
+            let dir = dir.map_or(default, PathBuf::from);
             fs::create_dir_all(&dir)?;
-            let path = dir.join("_sheikah");
-            let mut file = fs::File::create(&path)?;
-            completions(clap_complete::Shell::Zsh, &mut file);
+            let path = dir.join(file);
+            completions(shell, &mut fs::File::create(&path)?);
             ui::say(&format!("updated {}", tilde(&path)));
         }
     }
