@@ -7,6 +7,39 @@ and this project adheres to [semantic versioning](https://semver.org/).
 
 ## [unreleased]
 
+## 0.3.7 - 2026-11-22
+
+### added
+
+- user defined backup count through config ([`afc7448`](https://github.com/vahrina/sheikah/commit/afc7448))
+- backup displays what it'll actually restore, discard & revert ([`7de48fc`](https://github.com/vahrina/sheikah/7de48fcf934822e729b41740ae80a363277c221e))
+- bash & fish completions ([`70ee672`](https://github.com/vahrina/sheikah/commit/70ee672))
+- `lock` forgets the cached master password on demand ([`be01b63`](https://github.com/vahrina/sheikah/commit/be01b63))
+- `destroy` deletes a slate & its backups after listing what is lost & asking for its name ([`be01b63`](https://github.com/vahrina/sheikah/commit/be01b63))
+- `export` (json/csv) & `import` ([`fa964e5`](https://github.com/vahrina/sheikah/commit/fa964e5))
+  - tested: sheikah & bitwarden
+  - untested: chrome, firefox, keepassxc, 1password, lastpass, proton pass
+
+### changed
+
+- drop `pbcopy` (macos) clipboard backend, linux only ([`2346ef9`](https://github.com/vahrina/sheikah/commit/2346ef9))
+- `ui.confirm_overwrite` (default `false`) asks before `edit` saves or `passwd` rekeys ([`f7b3610`](https://github.com/vahrina/sheikah/commit/f7b3610))
+- edit tips: navigation (in `add`/`edit`) & invalid field messages (`service` & `type`) display always regardless of verbosity ([`371e8e6`](https://github.com/vahrina/sheikah/commit/371e8e6))
+- `sheikah completions` installs completions for the shell it runs from; `zsh` & `update` are gone, `-d` stays ([`a6c102a`](https://github.com/vahrina/sheikah/commit/a6c102a))
+- `just install` includes the stable toolchain via `+stable` ([`064c80d`](https://github.com/vahrina/sheikah/commit/064c80d))
+
+### docs
+
+- backup count ([`b255b89`](https://github.com/vahrina/sheikah/commit/b255b89))
+- export & import ([`fa964e5`](https://github.com/vahrina/sheikah/commit/fa964e5))
+- `lock`, `destroy` & `ui.confirm_overwrite`
+- shell completion: bash/fish paths, auto-detect via `sheikah completions`
+- clipboard: drop `pbcopy` (macos)
+
+### chores
+
+- deps: cargo update ([`b7cd570`](https://github.com/vahrina/sheikah/commit/b7cd570))
+
 ## [0.3.6] - 2026-11-17
 
 ### added
@@ -120,7 +153,8 @@ first tagged release & retroactively documented from git history
 
 - wrong directory permissions (octal instead of hex)
 
-[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.6...head
+[unreleased]: https://github.com/vahrina/sheikah/compare/v0.3.7...head
+[0.3.7]: https://github.com/vahrina/sheikah/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/vahrina/sheikah/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/vahrina/sheikah/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/vahrina/sheikah/compare/v0.3.3...v0.3.4

@@ -140,10 +140,12 @@ Commands:
   find, -f     fuzzy pick an entry, optionally seeded with QUERY
   config, -C   open the config with your preferred $EDITOR
   passwd       change the master password
+  lock         forget the cached master password
+  destroy      delete a slate & its backups
   backup, -b   pick one of the last saves & restore it
-  export       save all entries unencrypted: FILE.csv for other managers, else lossless json
-  import       add entries from a sheikah, bitwarden, chrome, firefox, keepassxc, .. export
-  completions  print or install a zsh completion script
+  export       save all entries unencrypted to FILE.csv/(lossless) json
+  import       add entries from a sheikah, bitwarden, .. export
+  completions  install/update completions for the current shell
   help         print this message or the help of the given subcommand(s)
 
 Arguments:
@@ -201,21 +203,8 @@ $ sheikah -c github
 - `-s` corresponds to `show` at top level, but as sub-argument to `add` becomes the site label
 - `-b` corresponds to `backup` at top level, but as sub-argument to `list` becomes `--boxed`
 - `ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS`, whereas the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts & host key questions go to your terminal. any other arguments supplied to `ssh` will work as per usual
-
-### <ins>export & import</ins>
-
-```console
-$ sheikah export slate.json
-  # every entry, lossless; import it back into any slate
-$ sheikah export slate.csv
-  # name, url, username, password, note, email & tags for other managers
-$ sheikah import bitwarden.json
-  # asks before adding; the slate is backed up first as on every save
-```
-
-- exports are **unencrypted**, created as `0600` & never overwrite a file. delete them once you are done
 - `import` reads sheikah json, unencrypted bitwarden json & the csv of most managers (bitwarden, chrome, firefox, keepassxc, 1password, lastpass, proton pass). totp secrets land in the notes, cards & identities are skipped
-- entries already in the slate (same service, username & password) are skipped
+- exports are **unencrypted**, created as `0600` - please delete them once you are done
 
 ### <ins>multiple slates</ins>
 
@@ -225,6 +214,7 @@ $ sheikah import bitwarden.json
 - a unique prefix is enough: `-S w` picks `work`
 - with several slates & no `-S`, fzf asks which one
 - `export SHEIKAH_SLATE=work` in your shell rc makes `work` the default, `-S` still overrides it
+- `sheikah -S <slate> destroy` removes a slate: it lists the entries & files that go, then asks you to type the slate name. **please never delete slates by hand**. a slate protected by `chattr +a` needs `sudo chattr -a ~/.sheikah` first as sheikah never asks you to run as sudo
 
 ### <ins>configuration</ins>
 
@@ -263,6 +253,7 @@ header = "#fffeee"
 [ui]
 verbose = false
 inspect_delete = true
+confirm_overwrite = false
 ```
 
 > an invalid configuration file keeps the changes untouched as you exit
@@ -302,7 +293,7 @@ inspect_delete = true
   - `clear` (int): seconds until a copied secret is wiped after `-c` / `copy`. `0` disables this behaviour. the used clipboard tool is covered in [clipboard](#clipboard)
 
 <ins>**session**</ins>:
-  - `cache` (int): seconds to remember the master password after a successful unlock. stored as a `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & wiped on expiry, failed unlock, `passwd`, or `backup` restore. `0` disables caching
+  - `cache` (int): seconds to remember the master password after a successful unlock. stored as a `0600` file under `$XDG_RUNTIME_DIR` (or `/dev/shm`) & wiped on expiry, failed unlock, `passwd`, `backup` restore, or `sheikah lock`. `0` disables caching
 
 <ins>**backup**</ins>:
   - `keep` (int): how many `<slate>.N.bak` slots saves rotate through, at least `1`. lowering it leaves the higher slots on disk (still listed by `backup`), since files are never deleted
@@ -328,20 +319,27 @@ inspect_delete = true
 <ins>**ui**</ins>:
   - `verbose` (bool): when `false`, hides usage tips & extra detail such as `(optional)` in `add`, the `login | recovery | ssh` type line, `via <tool>, clears in Ns` after `copy`, & `'enter' to keep | '-' to clear` in `edit`
   - `inspect_delete` (bool): `delete` shows the entry before the `[y/N]` confirmation dialogue; `false` skips straight to the confirm
+  - `confirm_overwrite` (bool): when `true`, `edit` & `passwd` asks before overwriting
 
 ## shell completion
 
-### <ins>set up completions for zsh</ins>
-
-> [zsh](https://www.zsh.org/) only for now, will commence with [bash](https://www.gnu.org/software/bash/)/[fish](https://fishshell.com/) once this project gains momentum
-
-install the script into the default completions dir:
-
 ```sh
-sheikah completions update
+sheikah completions
 ```
 
-this creates `${XDG_CONFIG_HOME:-~/.config}/zsh/completions/_sheikah`. use `-d`/`--dir <DIR>` when your file does **not** live in `~/.config/zsh/completions`. zsh only picks it up if that dir is in `fpath` before `compinit` runs, so add this to your `~/.zshrc`
+detects the shell you run it from (falls back to `$SHELL`) & writes the script to the respective completions dir
+
+> `-d`/`--dir <DIR>` picks another one
+
+to update, rerun after upgrading the binary
+
+- bash: `${XDG_DATA_HOME:-~/.local/share}/bash-completion/completions/sheikah`, works in a new shell
+- fish: `${XDG_CONFIG_HOME:-~/.config}/fish/completions/sheikah.fish`, works in a new shell
+- zsh: `${XDG_CONFIG_HOME:-~/.config}/zsh/completions/_sheikah`, needs the setup below
+
+### <ins>zsh</ins>
+
+zsh only picks the script up if its dir is in `fpath` before `compinit` runs, so add this to your `~/.zshrc`
 
 ```sh
 fpath=(~/.config/zsh/completions $fpath)
@@ -358,9 +356,7 @@ exec zsh
 
 > note that a mere `source ~/.zshrc` is not sufficient
 
-rerun `sheikah completions update` after upgrading the binary
-
-### <ins>troubleshooting shell completion</ins>
+### <ins>troubleshooting zsh shell completions</ins>
 
 **q**: my shell doesn't display completions after following the [steps above](#shell-completion)
 
@@ -376,7 +372,7 @@ rerun `sheikah completions update` after upgrading the binary
 
 ```sh
 # 1. regenerate completions
-sheikah completions zsh > ~/.config/zsh/completions/_sheikah
+sheikah completions
 
 # 2. make sure the script is current (must print 0)
 grep -c _default ~/.config/zsh/completions/_sheikah
@@ -425,7 +421,6 @@ border = "red"
 | 2 | `xclip -selection clipboard` | x11 |
 | 3 | `xsel --clipboard` | x11 |
 | 4 | `clip.exe` | wsl |
-| 5 | `pbcopy` | macos |
 
 
 ## storage
