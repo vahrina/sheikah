@@ -137,6 +137,22 @@ pub(crate) enum Commands {
     #[command(short_flag = 'b', disable_help_flag = true)]
     Backup,
 
+    /// save all entries unencrypted: FILE.csv for other managers, else lossless json
+    #[command(disable_help_flag = true)]
+    Export {
+        /// new file, never overwritten
+        #[arg(value_name = "FILE", value_hint = ValueHint::FilePath)]
+        file: String,
+    },
+
+    /// add entries from a sheikah, bitwarden, chrome, firefox, keepassxc, .. export
+    #[command(disable_help_flag = true)]
+    Import {
+        /// json or csv export
+        #[arg(value_name = "FILE", value_hint = ValueHint::FilePath)]
+        file: String,
+    },
+
     /// print or update the zsh completion script
     #[command(disable_help_flag = true)]
     Completions {

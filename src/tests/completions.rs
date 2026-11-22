@@ -23,5 +23,8 @@ fn zsh_script() {
     assert!(!script.contains("::reference -- entry to show"));
     assert!(script.contains("case $line[1] in"));
     assert!(script.contains("passwd") && script.contains("backup"));
-    assert!(!script.contains("_default") && !script.contains("_files"));
+    assert!(!script.contains("_default"));
+    // only `export FILE` & `import FILE` complete paths
+    let files = script.lines().filter(|l| l.contains("_files")).count();
+    assert_eq!(files, 2);
 }

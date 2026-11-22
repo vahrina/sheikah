@@ -10,6 +10,7 @@ mod entry;
 mod signal;
 mod slate;
 mod theme;
+mod transfer;
 mod ui;
 
 #[cfg(test)]

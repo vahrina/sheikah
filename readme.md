@@ -141,6 +141,8 @@ Commands:
   config, -C   open the config with your preferred $EDITOR
   passwd       change the master password
   backup, -b   pick one of the last saves & restore it
+  export       save all entries unencrypted: FILE.csv for other managers, else lossless json
+  import       add entries from a sheikah, bitwarden, chrome, firefox, keepassxc, .. export
   completions  print or install a zsh completion script
   help         print this message or the help of the given subcommand(s)
 
@@ -199,6 +201,21 @@ $ sheikah -c github
 - `-s` corresponds to `show` at top level, but as sub-argument to `add` becomes the site label
 - `-b` corresponds to `backup` at top level, but as sub-argument to `list` becomes `--boxed`
 - `ssh` reads passphrases from the terminal, never from stdin, so `sheikah -s rpi -p | ssh pi` cannot work. `sheikah ssh` runs ssh with `SSH_ASKPASS`, whereas the first passphrase/password prompt gets the entry's password through a private socket in `$XDG_RUNTIME_DIR`; later prompts & host key questions go to your terminal. any other arguments supplied to `ssh` will work as per usual
+
+### <ins>export & import</ins>
+
+```console
+$ sheikah export slate.json
+  # every entry, lossless; import it back into any slate
+$ sheikah export slate.csv
+  # name, url, username, password, note, email & tags for other managers
+$ sheikah import bitwarden.json
+  # asks before adding; the slate is backed up first as on every save
+```
+
+- exports are **unencrypted**, created as `0600` & never overwrite a file. delete them once you are done
+- `import` reads sheikah json, unencrypted bitwarden json & the csv of most managers (bitwarden, chrome, firefox, keepassxc, 1password, lastpass, proton pass). totp secrets land in the notes, cards & identities are skipped
+- entries already in the slate (same service, username & password) are skipped
 
 ### <ins>multiple slates</ins>
 

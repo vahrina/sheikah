@@ -73,3 +73,17 @@ fn positional_ref_and_config() {
         }
     }
 }
+
+#[test]
+fn export_import_args() {
+    assert!(matches!(
+        parse(&["sheikah", "export", "out.csv"]).command,
+        Some(Commands::Export { file }) if file == "out.csv"
+    ));
+    assert!(rejects(&["sheikah", "export"]));
+    assert!(matches!(
+        parse(&["sheikah", "import", "bw.json"]).command,
+        Some(Commands::Import { file }) if file == "bw.json"
+    ));
+    assert!(rejects(&["sheikah", "import"]));
+}

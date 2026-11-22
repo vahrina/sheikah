@@ -19,7 +19,7 @@ use crate::{
     config::{self, Config, Sort},
     entry::{self, Entry},
     slate::{self, Slate},
-    theme, ui,
+    theme, transfer, ui,
 };
 
 pub(crate) fn run(cli: Cli) -> Result<()> {
@@ -51,6 +51,8 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::Passwd) => cmd_passwd(s),
         Some(Commands::Doctor) => cmd_doctor(s),
         Some(Commands::Backup) => cmd_backup(s),
+        Some(Commands::Export { file }) => cmd_export(s, Path::new(&file)),
+        Some(Commands::Import { file }) => cmd_import(s, Path::new(&file)),
         Some(Commands::Show(a)) => cmd_show(s, a),
         Some(Commands::Copy { reference }) => cmd_copy(s, reference.as_deref().unwrap_or("")),
         Some(Commands::Ssh { args }) => {
@@ -713,6 +715,75 @@ fn backup_diff(current: &[Entry], backup: &[Entry]) {
     }
 }
 
+fn is_csv(file: &Path) -> bool {
+    file.extension()
+        .is_some_and(|x| x.eq_ignore_ascii_case("csv"))
+}
+
+/// `.csv` for other managers, anything else is lossless json
+fn cmd_export(name: Option<&str>, file: &Path) -> Result<()> {
+    let s = unlock(name)?;
+    let text = Zeroizing::new(if is_csv(file) {
+        transfer::to_csv(&s.entries)
+    } else {
+        transfer::to_json(&s.entries)?
+    });
+    let mut f = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .mode(0o600)
+        .open(file)
+        .with_context(|| format!("cannot create {} (never overwritten)", file.display()))?;
+    f.write_all(text.as_bytes())?;
+    f.sync_all()?;
+    ui::say(&format!(
+        "exported {} entries to {}",
+        s.entries.len(),
+        tilde(file)
+    ));
+    ui::note("the export is unencrypted, delete it once you are done");
+    Ok(())
+}
+
+/// same service (case-insensitive), username & secret
+fn is_duplicate(have: &[Entry], e: &Entry) -> bool {
+    have.iter().any(|h| {
+        h.service.eq_ignore_ascii_case(&e.service)
+            && h.username == e.username
+            && h.secret() == e.secret()
+    })
+}
+
+fn cmd_import(name: Option<&str>, file: &Path) -> Result<()> {
+    let text = Zeroizing::new(
+        fs::read_to_string(file).with_context(|| format!("cannot read {}", file.display()))?,
+    );
+    let (found, unreadable) = transfer::parse(&text)?;
+    let mut s = unlock(name)?;
+
+    let total = found.len();
+    let mut fresh: Vec<Entry> = Vec::new();
+    for e in found {
+        if !is_duplicate(&s.entries, &e) && !is_duplicate(&fresh, &e) {
+            fresh.push(e);
+        }
+    }
+    let skipped = unreadable + total - fresh.len();
+    if skipped > 0 {
+        ui::note(&format!("{skipped} skipped (duplicates or unsupported)"));
+    }
+    let n = fresh.len();
+    if n == 0 || !ui::confirm(&format!("import {n} entries?"))? {
+        ui::say("nothing imported");
+        return Ok(());
+    }
+    s.entries.extend(fresh);
+    s.save()?;
+    ui::say(&format!("imported {n} entries"));
+    ui::note("delete the import file, it is unencrypted");
+    Ok(())
+}
+
 fn cmd_passwd(name: Option<&str>) -> Result<()> {
     let mut s = unlock(name)?;
     let path = s.path.clone();
@@ -1000,6 +1071,23 @@ mod tests {
         assert_eq!(openssh_version("OpenSSH_10.0p2, LibreSSL"), Some((10, 0)));
         assert_eq!(openssh_version("OpenSSH_for_Windows_9.5p1"), None);
         assert_eq!(openssh_version("nope"), None);
+    }
+
+    #[test]
+    fn export_format_from_extension() {
+        assert!(is_csv(Path::new("out.CSV")));
+        assert!(!is_csv(Path::new("out.json")));
+        assert!(!is_csv(Path::new("out")));
+    }
+
+    #[test]
+    fn import_skips_duplicates() {
+        let have = sample();
+        assert!(is_duplicate(&have, &entry("GITHUB", Some("v"), &[])));
+        assert!(!is_duplicate(&have, &entry("github", Some("new"), &[])));
+        let mut changed = entry("github", Some("v"), &[]);
+        changed.password = "other".into();
+        assert!(!is_duplicate(&have, &changed));
     }
 
     #[test]
