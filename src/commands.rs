@@ -621,7 +621,7 @@ fn cmd_edit(
     e.touch();
 
     let svc = e.service.clone();
-    if s.config.ui.confirm_overwrite && !ui::confirm(&format!("save changes?"))? {
+    if s.config.ui.confirm_overwrite && !ui::confirm("save changes?")? {
         ui::say(&format!("kept {svc} unchanged"));
         return Ok(());
     }
