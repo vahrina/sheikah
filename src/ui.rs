@@ -361,7 +361,7 @@ pub(crate) fn prompt_lines(text: &str) -> Result<Vec<String>> {
 }
 
 pub(crate) fn confirm(text: &str) -> Result<bool> {
-    let v = prompt(&format!("{text} {}", edim("[y/N]")))?;
+    let v = prompt(&format!("{} {}", eerror(text), edim("[y/N]")))?;
     Ok(matches!(v.as_str(), "y" | "Y"))
 }
 pub(crate) fn secret(text: &str) -> Result<Zeroizing<String>> {

@@ -46,6 +46,8 @@ pub(crate) struct Ui {
     pub(crate) verbose: bool,
     /// show the entry before `delete` asks to confirm
     pub(crate) inspect_delete: bool,
+    /// ask before `edit` saves or `passwd` rekeys
+    pub(crate) confirm_overwrite: bool,
 }
 
 impl Default for Ui {
@@ -53,6 +55,7 @@ impl Default for Ui {
         Ui {
             verbose: true,
             inspect_delete: true,
+            confirm_overwrite: false,
         }
     }
 }
@@ -237,6 +240,7 @@ pub(crate) const HELP: &str = "\
 # ui
 #   verbose: false hides tips like \"(optional)\", type choices & \"via <tool>, clears in <N>s\"
 #   inspect_delete: show the entry before `delete` asks to confirm
+#   confirm_overwrite: ask before `edit` saves or `passwd` rekeys
 ";
 
 #[cfg(test)]
@@ -252,7 +256,7 @@ mod tests {
         assert_eq!(c.clipboard.clear, 45);
         assert_eq!(c.session.cache, 60);
         assert_eq!(c.backup.keep, 5);
-        assert!(c.ui.verbose && c.ui.inspect_delete);
+        assert!(c.ui.verbose && c.ui.inspect_delete && !c.ui.confirm_overwrite);
         let c: Config = toml::from_str("[backup]\nkeep = 10").unwrap();
         assert_eq!(c.backup.keep, 10);
         let c: Config = toml::from_str("[ui]\nverbose = false").unwrap();

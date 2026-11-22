@@ -621,6 +621,10 @@ fn cmd_edit(
     e.touch();
 
     let svc = e.service.clone();
+    if s.config.ui.confirm_overwrite && !ui::confirm(&format!("save changes?"))? {
+        ui::say(&format!("kept {svc} unchanged"));
+        return Ok(());
+    }
     s.save()?;
     ui::say(&format!("updated {svc}"));
     Ok(())
@@ -908,6 +912,15 @@ fn cmd_destroy(name: Option<&str>) -> Result<()> {
 fn cmd_passwd(name: Option<&str>) -> Result<()> {
     let mut s = unlock(name)?;
     let path = s.path.clone();
+    if s.config.ui.confirm_overwrite
+        && !ui::confirm(&format!(
+            "overwrite the master password for {}?",
+            tilde(&path)
+        ))?
+    {
+        ui::say("master password unchanged");
+        return Ok(());
+    }
     let new = ui::new_secret("new master password")?;
     let secret = secrecy::SecretString::from(new.as_str().to_owned());
     let ttl = s.config.session.cache;
