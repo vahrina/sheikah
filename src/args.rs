@@ -133,11 +133,11 @@ pub(crate) enum Commands {
     #[command(disable_help_flag = true)]
     Passwd,
 
-    /// forget the cached master password (only the -S slate, else all)
+    /// forget the cached master password
     #[command(disable_help_flag = true)]
     Lock,
 
-    /// delete a slate & its backups for good, after showing what is lost
+    /// delete a slate & its backups
     #[command(disable_help_flag = true)]
     Destroy,
 
@@ -145,7 +145,7 @@ pub(crate) enum Commands {
     #[command(short_flag = 'b', disable_help_flag = true)]
     Backup,
 
-    /// save all entries unencrypted: FILE.csv for other managers, else lossless json
+    /// save all entries unencrypted to FILE.csv/(lossless) json
     #[command(disable_help_flag = true)]
     Export {
         /// new file, never overwritten
@@ -153,7 +153,7 @@ pub(crate) enum Commands {
         file: String,
     },
 
-    /// add entries from a sheikah, bitwarden, chrome, firefox, keepassxc, .. export
+    /// add entries from a sheikah, bitwarden, .. export
     #[command(disable_help_flag = true)]
     Import {
         /// json or csv export
@@ -161,7 +161,7 @@ pub(crate) enum Commands {
         file: String,
     },
 
-    /// install or update completions for the current shell (bash, fish, zsh)
+    /// install/update completions for the current shell
     #[command(disable_help_flag = true)]
     Completions {
         /// completion directory instead of the shell's default
