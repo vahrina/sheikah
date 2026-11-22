@@ -5,7 +5,7 @@ use std::{
     cmp::Reverse,
     env::var_os,
     fs,
-    io::{self, Write},
+    io::Write,
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
@@ -14,7 +14,7 @@ use std::{
 use zeroize::Zeroizing;
 
 use crate::{
-    args::{AddArgs, Cli, Commands, CompletionAction, ShowArgs},
+    args::{AddArgs, Cli, Commands, ShowArgs},
     askpass, cache, clip,
     config::{self, Config, Sort},
     entry::{self, Entry},
@@ -68,7 +68,7 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::List { boxed, tag }) => cmd_list(s, boxed, &tag),
         Some(Commands::Find { query, tag }) => cmd_find(s, query.as_deref().unwrap_or(""), &tag),
         Some(Commands::Help { command }) => cmd_help(command.as_deref()),
-        Some(Commands::Completions { action, dir }) => cmd_completions(action, dir.as_deref()),
+        Some(Commands::Completions { dir }) => cmd_completions(dir.as_deref()),
         None => match cli.reference {
             Some(r) => cmd_show(
                 s,
@@ -101,46 +101,57 @@ fn cmd_help(sub: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn cmd_completions(action: CompletionAction, dir: Option<&str>) -> Result<()> {
-    use clap_complete::Shell;
-    match action {
-        CompletionAction::Bash => completions(Shell::Bash, &mut io::stdout()),
-        CompletionAction::Fish => completions(Shell::Fish, &mut io::stdout()),
-        CompletionAction::Zsh => completions(Shell::Zsh, &mut io::stdout()),
-        CompletionAction::Update => {
-            let shell = var_os("SHELL").unwrap_or_default();
-            let shell = Path::new(&shell).file_name().unwrap_or_default();
-            let xdg = |var: &str, fallback: &str| {
-                var_os(var)
-                    .filter(|v| !v.is_empty())
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| {
-                        var_os("HOME")
-                            .map(PathBuf::from)
-                            .unwrap_or_default()
-                            .join(fallback)
-                    })
-            };
-            let config = xdg("XDG_CONFIG_HOME", ".config");
-            let (shell, default, file) = match shell.to_str() {
-                Some("zsh") => (Shell::Zsh, config.join("zsh/completions"), "_sheikah"),
-                Some("fish") => (Shell::Fish, config.join("fish/completions"), "sheikah.fish"),
-                Some("bash") => (
-                    Shell::Bash,
-                    xdg("XDG_DATA_HOME", ".local/share").join("bash-completion/completions"),
-                    "sheikah",
-                ),
-                _ => bail!(
-                    "unsupported $SHELL {shell:?}, use `sheikah completions bash|fish|zsh > FILE`"
-                ),
-            };
-            let dir = dir.map_or(default, PathBuf::from);
-            fs::create_dir_all(&dir)?;
-            let path = dir.join(file);
-            completions(shell, &mut fs::File::create(&path)?);
-            ui::say(&format!("updated {}", tilde(&path)));
+/// the shell that ran us (`/proc/<ppid>/comm`), else the login shell from `$SHELL`
+fn current_shell() -> String {
+    let parent = fs::read_to_string(format!(
+        "/proc/{}/comm",
+        std::os::unix::process::parent_id()
+    ));
+    let name = |s: &str| s.trim().trim_start_matches('-').to_string();
+    match parent.map(|p| name(&p)) {
+        Ok(p) if matches!(p.as_str(), "bash" | "fish" | "zsh") => p,
+        _ => {
+            let login = var_os("SHELL").unwrap_or_default();
+            name(
+                &Path::new(&login)
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy(),
+            )
         }
     }
+}
+
+fn cmd_completions(dir: Option<&str>) -> Result<()> {
+    use clap_complete::Shell;
+    let xdg = |var: &str, fallback: &str| {
+        var_os(var)
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                var_os("HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_default()
+                    .join(fallback)
+            })
+    };
+    let config = xdg("XDG_CONFIG_HOME", ".config");
+    let shell = current_shell();
+    let (sh, default, file) = match shell.as_str() {
+        "zsh" => (Shell::Zsh, config.join("zsh/completions"), "_sheikah"),
+        "fish" => (Shell::Fish, config.join("fish/completions"), "sheikah.fish"),
+        "bash" => (
+            Shell::Bash,
+            xdg("XDG_DATA_HOME", ".local/share").join("bash-completion/completions"),
+            "sheikah",
+        ),
+        _ => bail!("unsupported shell {shell:?}, run this from bash, fish or zsh"),
+    };
+    let dir = dir.map_or(default, PathBuf::from);
+    fs::create_dir_all(&dir)?;
+    let path = dir.join(file);
+    completions(sh, &mut fs::File::create(&path)?);
+    ui::say(&format!("updated {shell} completions: {}", tilde(&path)));
     Ok(())
 }
 

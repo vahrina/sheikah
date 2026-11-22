@@ -4,14 +4,14 @@ use crate::args::Commands;
 #[test]
 fn completions_args() {
     assert!(matches!(
-        parse(&["sheikah", "completions", "zsh"]).command,
-        Some(Commands::Completions { .. })
+        parse(&["sheikah", "completions"]).command,
+        Some(Commands::Completions { dir: None })
     ));
     assert!(matches!(
-        parse(&["sheikah", "completions", "update", "-d", "/tmp/zsh"]).command,
-        Some(Commands::Completions { dir: Some(_), .. })
+        parse(&["sheikah", "completions", "-d", "/tmp/zsh"]).command,
+        Some(Commands::Completions { dir: Some(_) })
     ));
-    assert!(rejects(&["sheikah", "completions", "powershell"]));
+    assert!(rejects(&["sheikah", "completions", "zsh"]));
 }
 
 #[test]

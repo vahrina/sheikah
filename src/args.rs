@@ -1,4 +1,4 @@
-use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum, ValueHint};
+use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
 
 use crate::entry::EntryType;
 
@@ -153,11 +153,10 @@ pub(crate) enum Commands {
         file: String,
     },
 
-    /// print a bash, fish or zsh completion script, or `update` the one for $SHELL
+    /// install or update completions for the current shell (bash, fish, zsh)
     #[command(disable_help_flag = true)]
     Completions {
-        action: CompletionAction,
-        /// completion directory
+        /// completion directory instead of the shell's default
         #[arg(short, long, value_name = "DIR", value_hint = ValueHint::Other)]
         dir: Option<String>,
     },
@@ -168,14 +167,6 @@ pub(crate) enum Commands {
         #[arg(allow_hyphen_values = true, value_hint = ValueHint::Other)]
         command: Option<String>,
     },
-}
-
-#[derive(Clone, Copy, ValueEnum)]
-pub(crate) enum CompletionAction {
-    Bash,
-    Fish,
-    Zsh,
-    Update,
 }
 
 #[derive(Args, Default)]
