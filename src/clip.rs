@@ -21,7 +21,6 @@ const XSEL: Backend = (
     "xsel --clipboard --clear",
 );
 const WINDOWS: Backend = ("clip.exe", &[], "printf '' | clip.exe");
-const MAC: Backend = ("pbcopy", &[], "printf '' | pbcopy");
 
 pub(crate) fn is_wsl() -> bool {
     var_os("WSL_DISTRO_NAME").is_some() || Path::new("/proc/sys/fs/binfmt_misc/WSLInterop").exists()
@@ -30,9 +29,9 @@ pub(crate) fn is_wsl() -> bool {
 /// under wsl the windows clipboard is the one that matters, so clip.exe goes first
 pub(crate) fn backends() -> Vec<Backend> {
     if is_wsl() {
-        vec![WINDOWS, WAYLAND, XCLIP, XSEL, MAC]
+        vec![WINDOWS, WAYLAND, XCLIP, XSEL]
     } else {
-        vec![WAYLAND, XCLIP, XSEL, WINDOWS, MAC]
+        vec![WAYLAND, XCLIP, XSEL, WINDOWS]
     }
 }
 
