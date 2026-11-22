@@ -152,6 +152,7 @@ fn cmd_completions(dir: Option<&str>) -> Result<()> {
     let path = dir.join(file);
     completions(sh, &mut fs::File::create(&path)?);
     ui::say(&format!("updated {shell} completions: {}", tilde(&path)));
+    ui::say(&format!("run `exec {shell}` to load them"));
     Ok(())
 }
 
