@@ -133,6 +133,14 @@ pub(crate) enum Commands {
     #[command(disable_help_flag = true)]
     Passwd,
 
+    /// forget the cached master password (only the -S slate, else all)
+    #[command(disable_help_flag = true)]
+    Lock,
+
+    /// delete a slate & its backups for good, after showing what is lost
+    #[command(disable_help_flag = true)]
+    Destroy,
+
     /// pick one of the last saves & restore it
     #[command(short_flag = 'b', disable_help_flag = true)]
     Backup,

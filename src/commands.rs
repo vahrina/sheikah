@@ -30,7 +30,12 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
     let needs_fzf = !matches!(
         (&cli.command, &cli.reference),
         (
-            Some(Commands::Doctor | Commands::Help { .. } | Commands::Completions { .. }),
+            Some(
+                Commands::Doctor
+                    | Commands::Lock
+                    | Commands::Help { .. }
+                    | Commands::Completions { .. }
+            ),
             _
         ) | (None, None)
     );
@@ -49,6 +54,8 @@ pub(crate) fn run(cli: Cli) -> Result<()> {
         Some(Commands::Config { slate }) => cmd_config(slate.as_deref().or(s)),
         Some(Commands::Init) => cmd_init(s),
         Some(Commands::Passwd) => cmd_passwd(s),
+        Some(Commands::Lock) => cmd_lock(s),
+        Some(Commands::Destroy) => cmd_destroy(s),
         Some(Commands::Doctor) => cmd_doctor(s),
         Some(Commands::Backup) => cmd_backup(s),
         Some(Commands::Export { file }) => cmd_export(s, Path::new(&file)),
@@ -818,6 +825,86 @@ fn cmd_import(name: Option<&str>, file: &Path) -> Result<()> {
     Ok(())
 }
 
+fn cmd_lock(name: Option<&str>) -> Result<()> {
+    match name {
+        Some(n) => {
+            let path = slate::resolve(Some(n))?;
+            cache::clear(&path);
+            ui::say(&format!("locked {}", tilde(&path)));
+        }
+        None => {
+            let n = cache::clear_all();
+            ui::say(&format!("locked {n} slate(s)"));
+        }
+    }
+    Ok(())
+}
+
+/// `12 entries (9 login, 2 recovery, 1 ssh): github, proton, rpi, .. +9 more`
+fn destroy_summary(entries: &[Entry]) -> String {
+    use entry::EntryType::{Login, Recovery, Ssh};
+    let kinds: Vec<String> = [Login, Recovery, Ssh]
+        .into_iter()
+        .filter_map(|k| {
+            let n = entries.iter().filter(|e| e.kind == k).count();
+            (n > 0).then(|| format!("{n} {k}"))
+        })
+        .collect();
+    let names: Vec<&str> = sorted(entries, Sort::Alphabetical)
+        .into_iter()
+        .take(5)
+        .map(|i| entries[i].service.as_str())
+        .collect();
+    let more = match entries.len() - names.len() {
+        0 => String::new(),
+        n => format!(", .. +{n} more"),
+    };
+    match entries.len() {
+        0 => "no entries".into(),
+        n => format!(
+            "{n} entries ({}): {}{more}",
+            kinds.join(", "),
+            names.join(", ")
+        ),
+    }
+}
+
+fn cmd_destroy(name: Option<&str>) -> Result<()> {
+    let path = slate::resolve(name)?;
+    let pass = match cache::load(&path) {
+        Some(p) => Zeroizing::new(p.expose_secret().to_owned()),
+        None => ui::secret("master password")?,
+    };
+    match slate::peek(&path, &pass) {
+        Ok((_, entries)) => ui::note(&format!("lost: {}", destroy_summary(&entries))),
+        Err(_) => ui::note("lost: unknown, the master password does not open this slate"),
+    }
+    let files = slate::files(&path);
+    ui::note(&format!("deleted with it ({} files):", files.len()));
+    for f in &files {
+        eprintln!("  {}", ui::edim(&tilde(f)));
+    }
+    let slate_name = path
+        .file_name()
+        .map(|f| f.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    ui::tip(&format!(
+        "keep a copy first: `sheikah -S {} export {slate_name}.json`",
+        name.unwrap_or(&slate_name)
+    ));
+    let typed = ui::prompt(&format!(
+        "type '{slate_name}' to delete it for good, anything else keeps it"
+    ))?;
+    if typed != slate_name {
+        ui::say(&format!("kept {}", tilde(&path)));
+        return Ok(());
+    }
+    slate::remove(&files)?;
+    cache::clear(&path);
+    ui::say(&format!("destroyed {}", tilde(&path)));
+    Ok(())
+}
+
 fn cmd_passwd(name: Option<&str>) -> Result<()> {
     let mut s = unlock(name)?;
     let path = s.path.clone();
@@ -1112,6 +1199,19 @@ mod tests {
         assert!(is_csv(Path::new("out.CSV")));
         assert!(!is_csv(Path::new("out.json")));
         assert!(!is_csv(Path::new("out")));
+    }
+
+    #[test]
+    fn destroy_summary_counts_and_names() {
+        let mut e = sample();
+        e[2].kind = entry::EntryType::Recovery;
+        assert_eq!(
+            destroy_summary(&e),
+            "4 entries (3 login, 1 recovery): github, github, netflix, Proton"
+        );
+        e.extend((0..3).map(|i| entry(&format!("z{i}"), None, &[])));
+        assert!(destroy_summary(&e).ends_with("Proton, z0, .. +2 more"));
+        assert_eq!(destroy_summary(&[]), "no entries");
     }
 
     #[test]

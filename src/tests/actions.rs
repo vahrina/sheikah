@@ -87,3 +87,13 @@ fn export_import_args() {
     ));
     assert!(rejects(&["sheikah", "import"]));
 }
+
+#[test]
+fn lock_args() {
+    assert!(matches!(
+        parse(&["sheikah", "lock"]).command,
+        Some(Commands::Lock)
+    ));
+    assert!(parse(&["sheikah", "-S", "work", "lock"]).slate.is_some());
+    assert!(rejects(&["sheikah", "lock", "extra"]));
+}

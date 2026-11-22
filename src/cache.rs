@@ -70,6 +70,17 @@ pub(crate) fn clear(slate: &Path) {
     let _ = fs::remove_file(cache_file(slate));
 }
 
+/// forgets every cached master password; returns how many were removed
+pub(crate) fn clear_all() -> usize {
+    fs::read_dir(runtime_dir())
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_name().to_string_lossy().starts_with("sheikah-pass-"))
+        .filter(|e| fs::remove_file(e.path()).is_ok())
+        .count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

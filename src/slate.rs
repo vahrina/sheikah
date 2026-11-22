@@ -203,6 +203,36 @@ pub(crate) fn restore(path: &Path, backup: &Path, pass: &str, keep: usize) -> Re
     write_file(path, &blob)
 }
 
+/// the slate, then every backup of it
+pub(crate) fn files(path: &Path) -> Vec<PathBuf> {
+    let used = path.with_file_name(format!("{}.used.bak", file_name(path)));
+    std::iter::once(path.to_path_buf())
+        .chain(backups(path).into_iter().map(|(p, _)| p))
+        .chain(used.exists().then_some(used))
+        .collect()
+}
+
+/// deletes `files`, stopping at the first one that fails
+pub(crate) fn remove(files: &[PathBuf]) -> Result<()> {
+    let _guard = crate::signal::Critical::enter();
+    for f in files {
+        match fs::remove_file(f) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                let dir = f.parent().unwrap_or(Path::new("."));
+                bail!(
+                    "cannot delete {}, {} is protected: run `sudo chattr -a {}` first",
+                    f.display(),
+                    dir.display(),
+                    dir.display()
+                );
+            }
+            Err(e) => return Err(e).with_context(|| format!("cannot delete {}", f.display())),
+        }
+    }
+    Ok(())
+}
+
 fn derive_key(pass: &str, salt: &[u8], (m, t, p): (u32, u32, u32)) -> Result<Zeroizing<[u8; 32]>> {
     let params = Params::new(m, t, p, Some(32)).map_err(|e| anyhow::anyhow!("argon2: {e}"))?;
     let mut key = Zeroizing::new([0u8; 32]);
@@ -395,6 +425,20 @@ mod tests {
         assert_eq!(v.entries.len(), 1);
 
         cleanup(&path);
+    }
+
+    #[test]
+    fn files_then_remove() {
+        let path = tmp("remove");
+        init(&path, "pw").unwrap();
+        let v = Slate::load(path.clone(), Zeroizing::new("pw".into())).unwrap();
+        v.save().unwrap();
+        v.save_used().unwrap();
+        let f = files(&path);
+        assert_eq!(f.len(), 3);
+        assert_eq!(f[0], path);
+        remove(&f).unwrap();
+        assert!(f.iter().all(|p| !p.exists()));
     }
 
     #[test]
